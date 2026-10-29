@@ -194,9 +194,22 @@ class App_Unificacao_Base
             throw new CoreExt_Exception('Parâmetro 2 deve ser um array de códigos duplicados');
         }
 
+        // Os códigos entram direto nas consultas de unificação, então só aceita inteiros.
+        $this->codigoUnificador = self::inteiro($this->codigoUnificador);
+        $this->codigosDuplicados = array_map(self::inteiro(...), $this->codigosDuplicados);
+
         if ($this->codPessoaLogada != (int) $this->codPessoaLogada) {
             throw new CoreExt_Exception('Parâmetro 3 deve ser um inteiro');
         }
+    }
+
+    public static function inteiro($valor): int
+    {
+        if (is_int($valor) || (is_string($valor) && ctype_digit($valor))) {
+            return (int) $valor;
+        }
+
+        throw new CoreExt_Exception('Os códigos para unificação devem ser números inteiros.');
     }
 
     /**

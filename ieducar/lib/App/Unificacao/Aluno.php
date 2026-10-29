@@ -11,6 +11,11 @@ class App_Unificacao_Aluno
     {
         self::validaParametros($codAlunoPrincipal, $codAlunos, $codPessoa);
 
+        // Os códigos entram direto nas consultas abaixo, então só aceita inteiros.
+        $codAlunoPrincipal = App_Unificacao_Base::inteiro($codAlunoPrincipal);
+        $codAlunos = array_map(App_Unificacao_Base::inteiro(...), $codAlunos);
+        $codPessoa = App_Unificacao_Base::inteiro($codPessoa);
+
         $codAlunosString = implode(',', $codAlunos);
 
         self::logData($codAlunos, $unificationId);
