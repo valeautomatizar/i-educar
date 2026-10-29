@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\ActiveLookingMessageController;
 use App\Http\Controllers\Api\App\AlunoController;
+use App\Http\Controllers\Api\App\MatriculaController;
 use App\Http\Controllers\Api\App\PainelController;
 use App\Http\Controllers\Api\App\SessaoController;
 use App\Http\Controllers\Api\CityController;
@@ -97,4 +98,6 @@ Route::group(['middleware' => 'auth:sanctum', 'prefix' => 'app', 'as' => 'api.ap
     Route::get('painel', PainelController::class)->name('painel');
     Route::get('alunos', [AlunoController::class, 'index'])->name('alunos.index');
     Route::get('alunos/{aluno}', [AlunoController::class, 'show'])->whereNumber('aluno')->name('alunos.show');
+    Route::get('matriculas/turmas', [MatriculaController::class, 'turmas'])->name('matriculas.turmas');
+    Route::post('matriculas', [MatriculaController::class, 'store'])->name('matriculas.store');
 });
