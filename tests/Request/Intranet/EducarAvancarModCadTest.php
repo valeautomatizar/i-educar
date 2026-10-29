@@ -237,3 +237,22 @@ test('volta para o início da escola quando o usuário só pode visualizar a rem
 
     $this->get($this->url)->assertRedirect('educar_index.php');
 });
+
+test('recusa a data da matrícula fora do formato, sem levá-la à consulta', function () {
+    $approved = ($this->student)('Ana Alves', App_Model_MatriculaSituacao::APROVADO);
+
+    ($this->send)(['data_matricula' => "10/02/2030'); DELETE FROM pmieducar.matricula; --"])
+        ->assertOk()
+        ->assertSee('Informe a data da matrícula no formato dd/mm/aaaa.');
+
+    expect(($this->new)($approved))->toBeNull();
+});
+
+test('a turma com sql injetado vira número antes da consulta', function () {
+    $approved = ($this->student)('Ana Alves', App_Model_MatriculaSituacao::APROVADO);
+    $other = $this->scenario->schoolClass(['nm_turma' => 'Outra Turma', 'ano' => 2029]);
+
+    ($this->send)(['ref_cod_turma' => $other->getKey() . ' OR true'])->assertOk();
+
+    expect(($this->new)($approved))->toBeNull();
+});
