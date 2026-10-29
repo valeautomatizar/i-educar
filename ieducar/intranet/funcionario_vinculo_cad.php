@@ -70,6 +70,7 @@ return new class extends clsCadastro
 
     public function Editar()
     {
+        $this->cod_vinculo = (int) $this->cod_vinculo;
         $db = new clsBanco;
         if ($this->duplicado(nmVinculo: $this->nm_vinculo, abreviatura: $this->abreviatura, id: $this->cod_vinculo)) {
             $this->mensagem = 'Já existe um registro com este nome ou abreviatura.';
@@ -87,6 +88,7 @@ return new class extends clsCadastro
 
     public function Excluir()
     {
+        $this->cod_vinculo = (int) $this->cod_vinculo;
         $count = (int) $this->db->CampoUnico(consulta: "SELECT COUNT(*) FROM pmieducar.servidor_alocacao WHERE ref_cod_funcionario_vinculo = $this->cod_vinculo;");
         $count += (int) $this->db->CampoUnico(consulta: "SELECT COUNT(*) FROM portal.funcionario WHERE ref_cod_funcionario_vinculo = $this->cod_vinculo;");
 
@@ -110,6 +112,7 @@ return new class extends clsCadastro
         $sql = "SELECT COUNT(*) FROM portal.funcionario_vinculo WHERE TRUE AND nm_vinculo ILIKE '{$nm_Vinculo}' OR abreviatura ILIKE '{$abrevia}'";
 
         if (!is_null(value: $id)) {
+            $id = (int) $id;
             $sql .= " AND cod_funcionario_vinculo <> {$id}";
         }
 
