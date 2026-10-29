@@ -102,6 +102,16 @@ test('a matrícula não pode ser de outro funcionário', function () {
     $this->post($url, $payload)->assertOk()->assertSee('já foi usada, por favor, informe outra.');
 });
 
+test('matrícula com aspas é tratada como texto na conferência de repetição', function () {
+    $this->type = LegacyUserTypeFactory::new()->create();
+    $this->school = LegacySchoolFactory::new()->create(['ref_cod_instituicao' => $this->user->ref_cod_instituicao]);
+    [$url, $payload] = usuarioNovoForm(['matricula' => "o'brien"]);
+
+    $this->post($url, $payload)->assertRedirect();
+
+    expect(LegacyEmployee::query()->where('matricula', "o'brien")->exists())->toBeTrue();
+});
+
 test('quem não é administrador não atribui tipos acima do seu nível nem edita administradores', function () {
     LegacyGeneralConfigurationFactory::new()->create(['ref_cod_instituicao' => $this->user->ref_cod_instituicao, 'active_on_ieducar' => true]);
     $adminType = $this->user->ref_cod_tipo_usuario;

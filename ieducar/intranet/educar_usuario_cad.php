@@ -431,11 +431,13 @@ return new class extends clsCadastro
 
     public function validatesUniquenessOfMatricula($pessoaId, $matricula)
     {
-        $sql = "select 1 from portal.funcionario where lower(matricula) = lower('$matricula') and ref_cod_pessoa_fj != $pessoaId";
-        $db = new clsBanco;
+        $exists = LegacyEmployee::query()
+            ->whereRaw('lower(matricula) = lower(?)', [(string) $matricula])
+            ->where('ref_cod_pessoa_fj', '!=', (int) $pessoaId)
+            ->exists();
 
-        if ($db->CampoUnico($sql) == '1') {
-            $this->mensagem = "A matrícula '$matricula' já foi usada, por favor, informe outra.";
+        if ($exists) {
+            $this->mensagem = 'A matrícula \'' . e($matricula) . '\' já foi usada, por favor, informe outra.';
 
             return false;
         }

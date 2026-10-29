@@ -138,6 +138,7 @@ return new class extends clsCadastro
         $matricula->data_cancel = null;
         $matricula->edita();
 
+        $matriculaId = (int) $matriculaId;
         $sql = "select ref_cod_turma, sequencial from pmieducar.matricula_turma where ref_cod_matricula = $matriculaId and sequencial = (select max(sequencial) from pmieducar.matricula_turma where ref_cod_matricula = $matriculaId) and not exists(select 1 from pmieducar.matricula_turma where ref_cod_matricula = $matriculaId and ativo = 1 limit 1) limit 1";
 
         $db = new clsBanco;
