@@ -74,6 +74,12 @@ class Export extends Model
     {
         $model = $this->model;
 
+        $allowed = collect($this->getAllowedExports())->map(fn ($export) => $export::class)->all();
+
+        if (!in_array($model, $allowed, true)) {
+            throw new \InvalidArgumentException('Tipo de exportação inválido.');
+        }
+
         return new $model;
     }
 
@@ -83,6 +89,24 @@ class Export extends Model
     public function newExportQueryBuilder()
     {
         return $this->newExportModel()->newQuery();
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function allowedRelationFields(): array
+    {
+        $model = $this->newExportModel();
+
+        if (!method_exists($model, 'getExportedColumnsByGroup')) {
+            return [];
+        }
+
+        return collect($model->getExportedColumnsByGroup())
+            ->flatMap(fn ($columns) => array_keys($columns))
+            ->filter(fn ($field) => str_contains($field, '.'))
+            ->values()
+            ->all();
     }
 
     /**
@@ -100,7 +124,13 @@ class Export extends Model
                 continue;
             }
 
-            [$relation, $column] = explode('.', $field);
+            [$relation, $column] = explode('.', $field, 2);
+
+            // O nome da relação vira uma chamada de método no builder, então só
+            // aceita as relações que o modelo declara como exportáveis.
+            if (!in_array($field, $this->allowedRelationFields(), true)) {
+                continue;
+            }
 
             $relations[$relation][] = $column;
         }
@@ -122,31 +152,35 @@ class Export extends Model
      */
     public function applyFilters(Builder $query): void
     {
-        foreach ($this->filters as $filter) {
+        foreach ($this->filters ?? [] as $filter) {
             $column = $filter['column'];
             $operator = $filter['operator'];
             $value = $filter['value'];
 
+            // A coluna vem do próprio sistema, mas entra crua na consulta.
+            if (!preg_match('/^[a-z_]+\.[a-z_]+$/', (string) $column)) {
+                continue;
+            }
+
             switch ($operator) {
                 case '=':
-                    $query->whereRaw("{$column} {$operator} {$value}");
+                    $query->where($column, '=', $value);
 
                     break;
 
                 case 'in':
-                    $value = implode(', ', $value);
-                    $query->whereRaw("{$column} {$operator} ({$value})");
+                    $query->whereIn($column, (array) $value);
 
                     break;
                 case '@>':
                     if (is_array($value)) {
                         $query->where(function ($q) use ($column, $value) {
                             foreach ($value as $v) {
-                                $q->orWhereRaw("{$column} @> ('{{$v}}')");
+                                $q->orWhereRaw("{$column} @> ?", ['{' . (int) $v . '}']);
                             }
                         });
                     } else {
-                        $query->whereRaw("{$column} @> ('{{$value}}')");
+                        $query->whereRaw("{$column} @> ?", ['{' . (int) $value . '}']);
                     }
 
                     break;

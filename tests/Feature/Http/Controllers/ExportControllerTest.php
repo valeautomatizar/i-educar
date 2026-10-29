@@ -9,6 +9,7 @@ use App\Models\Exporter\SocialAssistance;
 use App\Models\Exporter\Stage;
 use App\Models\Exporter\Student;
 use App\Models\Exporter\Teacher;
+use App\Models\LegacyEmployee;
 use App\Process;
 use App\User;
 use Database\Factories\Exporter\ExportFactory;
@@ -148,4 +149,13 @@ test('o administrador sem filtros exporta tudo', function () {
     ($this->export)(['model' => Teacher::class]);
 
     expect(($this->filters)())->toBeNull();
+});
+
+test('recusa exportar um modelo fora da lista permitida', function () {
+    ($this->export)(['model' => LegacyEmployee::class])
+        ->assertRedirect('/exportacoes/novo')
+        ->assertSessionHasErrors(['Error' => 'Tipo de exportação inválido.']);
+
+    expect(Export::query()->count())->toBe(0);
+    Bus::assertNotDispatched(DatabaseToCsvExporter::class);
 });

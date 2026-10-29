@@ -15,9 +15,9 @@ class ExporterSqlExport implements FromArray, WithHeadings
 
     private array $headings = [];
 
-    public function __construct(string $sql, bool $withHeader = true)
+    public function __construct(string $sql, bool $withHeader = true, array $bindings = [])
     {
-        $this->data = DB::select($sql);
+        $this->data = DB::select($sql, $bindings);
         if ($withHeader && isset($this->data[0])) {
             $this->headings = array_keys((array) $this->data[0]);
         }

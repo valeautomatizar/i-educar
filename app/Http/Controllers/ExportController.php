@@ -86,6 +86,13 @@ class ExportController extends Controller
                 ->withErrors(['Error' => ['Selecione ao menos uma informação que deseja exportar para continuar.']]);
         }
 
+        $allowed = collect((new Export)->getAllowedExports())->map(fn ($export) => $export::class);
+
+        if (!$allowed->contains($request->input('model'))) {
+            return redirect('/exportacoes/novo')
+                ->withErrors(['Error' => ['Tipo de exportação inválido.']]);
+        }
+
         $export = Export::create(
             $this->filter($request)
         );
