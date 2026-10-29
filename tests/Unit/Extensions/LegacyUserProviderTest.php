@@ -50,3 +50,35 @@ test('refaz o hash da senha só quando é forçado', function () {
 
     expect(Hash::check('nova', LegacyEmployee::query()->find($this->user->getKey())->senha))->toBeTrue();
 });
+
+test('obriga a troca da senha quando o login usa uma senha fraca', function () {
+    LegacyEmployee::query()->whereKey($this->user->getKey())->update(['senha' => Hash::make('123456789'), 'force_reset_password' => false]);
+    $user = User::query()->findOrFail($this->user->getKey());
+
+    expect($this->provider->validateCredentials($user, ['password' => '123456789']))->toBeTrue()
+        ->and(LegacyEmployee::query()->find($user->getKey())->force_reset_password)->toBeTrue();
+});
+
+test('obriga a troca da senha antiga em md5 quando ela é fraca', function () {
+    LegacyEmployee::query()->whereKey($this->user->getKey())->update(['senha' => md5('antiga'), 'force_reset_password' => false]); // NOSONAR
+    $user = User::query()->findOrFail($this->user->getKey());
+
+    expect($this->provider->validateCredentials($user, ['password' => 'antiga']))->toBeTrue()
+        ->and(LegacyEmployee::query()->find($user->getKey())->force_reset_password)->toBeTrue();
+});
+
+test('não obriga a troca quando a senha atende à política', function () {
+    LegacyEmployee::query()->whereKey($this->user->getKey())->update(['senha' => Hash::make('Senha@Forte1'), 'force_reset_password' => false]);
+    $user = User::query()->findOrFail($this->user->getKey());
+
+    expect($this->provider->validateCredentials($user, ['password' => 'Senha@Forte1']))->toBeTrue()
+        ->and(LegacyEmployee::query()->find($user->getKey())->force_reset_password)->toBeFalse();
+});
+
+test('senha errada não altera nada', function () {
+    LegacyEmployee::query()->whereKey($this->user->getKey())->update(['senha' => Hash::make('123456789'), 'force_reset_password' => false]);
+    $user = User::query()->findOrFail($this->user->getKey());
+
+    expect($this->provider->validateCredentials($user, ['password' => 'outra']))->toBeFalse()
+        ->and(LegacyEmployee::query()->find($user->getKey())->force_reset_password)->toBeFalse();
+});

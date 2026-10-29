@@ -3,6 +3,7 @@
 namespace App\Extensions;
 
 use App\Helpers\UserCache;
+use App\Services\ValidateUserPasswordService;
 use App\User;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Contracts\Auth\UserProvider;
@@ -90,10 +91,35 @@ class LegacyUserProvider implements UserProvider
         );
 
         if (empty($pass)) {
-            return $this->validateLegacyCredentials($user, $credentials);
+            $pass = $this->validateLegacyCredentials($user, $credentials);
         }
 
-        return true;
+        if ($pass) {
+            $this->forceResetIfPasswordIsWeak($user, $credentials['password']);
+        }
+
+        return (bool) $pass;
+    }
+
+    /**
+     * Obriga a troca da senha no próximo acesso quando a senha usada no login
+     * não atende à política atual, como a senha padrão da instalação ou
+     * senhas antigas cadastradas antes da regra existir.
+     */
+    public function forceResetIfPasswordIsWeak(User $user, string $plain): void
+    {
+        $employee = $user->employee;
+
+        if (empty($employee) || $employee->force_reset_password) {
+            return;
+        }
+
+        try {
+            app(ValidateUserPasswordService::class)->validate($plain);
+        } catch (ValidationException) {
+            $employee->force_reset_password = true;
+            $employee->save();
+        }
     }
 
     /**
