@@ -200,8 +200,16 @@ return new class extends clsCadastro
             ->exists();
     }
 
+    // Os códigos vêm do formulário e entram em consultas montadas à mão.
+    private function codigo(string $campo): int
+    {
+        return (int) $this->$campo;
+    }
+
     private function getEnturmacoesNaTurma($turma)
     {
+        $turma = (int) $turma;
+
         return (array) Portabilis_Utils_Database::fetchPreparedQuery(sql: "
             select *
             from pmieducar.matricula_turma
@@ -212,6 +220,8 @@ return new class extends clsCadastro
 
     private function getMaximoAlunosNaTurma($turma)
     {
+        $turma = (int) $turma;
+
         return (int) (new clsBanco)->CampoUnico(consulta: "
             select max_aluno
             from pmieducar.turma
@@ -221,6 +231,7 @@ return new class extends clsCadastro
 
     private function getMatricula($matricula)
     {
+        $matricula = (int) $matricula;
         $matriculas = Portabilis_Utils_Database::fetchPreparedQuery(sql: "
             select *
             from pmieducar.matricula
@@ -261,9 +272,13 @@ return new class extends clsCadastro
 
     private function addEnturmacao($matricula, $turma, $sequencial, $ativo)
     {
+        $matricula = (int) $matricula;
+        $turma = (int) $turma;
+        $sequencial = (int) $sequencial;
+        $ativo = (int) $ativo;
         $data = date(format: 'Y-m-d');
         $datahora = date(format: 'Y-m-d H:i:s');
-        $usuario = $this->pessoa_logada;
+        $usuario = (int) $this->pessoa_logada;
 
         (new clsBanco)->CampoUnico(consulta: "
             insert into pmieducar.matricula_turma (
@@ -374,7 +389,7 @@ return new class extends clsCadastro
         }
 
         $db = new clsBanco;
-        $somente_do_bairro = $db->CampoUnico(consulta: "SELECT matricula_apenas_bairro_escola FROM pmieducar.instituicao where cod_instituicao = {$this->ref_cod_instituicao}");
+        $somente_do_bairro = $db->CampoUnico(consulta: "SELECT matricula_apenas_bairro_escola FROM pmieducar.instituicao where cod_instituicao = {$this->codigo('ref_cod_instituicao')}");
 
         if ($somente_do_bairro) {
             $db = new clsBanco;
@@ -384,7 +399,7 @@ return new class extends clsCadastro
                 JOIN person_has_place php ON true
                     AND a.id = php.place_id
                 JOIN pmieducar.escola e ON e.ref_idpes = php.person_id
-                WHERE e.cod_escola = {$this->ref_cod_escola}
+                WHERE e.cod_escola = {$this->codigo('ref_cod_escola')}
             ");
 
             $db = new clsBanco;
@@ -394,7 +409,7 @@ return new class extends clsCadastro
                 JOIN person_has_place php ON true
                     AND a.id = php.place_id
                 JOIN pmieducar.aluno al ON al.ref_idpes = php.person_id
-                WHERE al.cod_aluno = {$this->ref_cod_aluno}
+                WHERE al.cod_aluno = {$this->codigo('ref_cod_aluno')}
             ");
 
             if (strcasecmp(string1: $bairro_aluno, string2: $bairro_escola) != 0) {
@@ -461,7 +476,7 @@ return new class extends clsCadastro
                     return false;
                 }
             } else {
-                $db->Consulta(consulta: "select ref_ref_cod_escola, ref_cod_curso, ref_ref_cod_serie, ano from pmieducar.matricula where ativo = 1 and ref_ref_cod_escola != $this->ref_cod_escola and ref_cod_aluno = $this->ref_cod_aluno AND dependencia = FALSE and aprovado = 3 and not exists (select 1 from pmieducar.transferencia_solicitacao as ts where ts.ativo = 1 and ts.ref_cod_matricula_saida = matricula.cod_matricula )");
+                $db->Consulta(consulta: "select ref_ref_cod_escola, ref_cod_curso, ref_ref_cod_serie, ano from pmieducar.matricula where ativo = 1 and ref_ref_cod_escola != {$this->codigo('ref_cod_escola')} and ref_cod_aluno = {$this->codigo('ref_cod_aluno')} AND dependencia = FALSE and aprovado = 3 and not exists (select 1 from pmieducar.transferencia_solicitacao as ts where ts.ativo = 1 and ts.ref_cod_matricula_saida = matricula.cod_matricula )");
 
                 $db->ProximoRegistro();
                 $m = $db->Tupla();
@@ -589,12 +604,12 @@ return new class extends clsCadastro
 
             $db->Consulta(consulta: "SELECT *
                              FROM pmieducar.matricula m
-                            WHERE m.ano = {$this->ano}
+                            WHERE m.ano = {$this->codigo('ano')}
                               AND m.aprovado = 3
                               AND m.ativo = 1
-                              AND m.ref_cod_aluno = {$this->ref_cod_aluno}
-                              AND m.ref_ref_cod_serie = {$this->ref_cod_serie}
-                              AND m.ref_ref_cod_escola = {$this->ref_cod_escola}
+                              AND m.ref_cod_aluno = {$this->codigo('ref_cod_aluno')}
+                              AND m.ref_ref_cod_serie = {$this->codigo('ref_cod_serie')}
+                              AND m.ref_ref_cod_escola = {$this->codigo('ref_cod_escola')}
                               AND dependencia ");
 
             $db->ProximoRegistro();
@@ -754,8 +769,8 @@ return new class extends clsCadastro
         $matriculasDependencia =
             Portabilis_Utils_Database::fetchPreparedQuery(sql: "SELECT *
                                                              FROM pmieducar.matricula
-                                                            WHERE matricula.ano = {$this->ano}
-                                                              AND matricula.ref_cod_aluno = {$this->ref_cod_aluno}
+                                                            WHERE matricula.ano = {$this->codigo('ano')}
+                                                              AND matricula.ref_cod_aluno = {$this->codigo('ref_cod_aluno')}
                                                               AND matricula.dependencia = TRUE
                                                               AND matricula.aprovado = 3
                                                               AND matricula.ativo = 1");
@@ -765,9 +780,9 @@ return new class extends clsCadastro
         $db = new clsBanco;
         $matriculasDependenciaPermitida = $db->CampoUnico(consulta: "SELECT regra_avaliacao.qtd_matriculas_dependencia
                                                              FROM pmieducar.serie
-                                                       INNER JOIN modules.regra_avaliacao_serie_ano AS rasa ON (rasa.serie_id = serie.cod_serie AND rasa.ano_letivo = {$this->ano})
+                                                       INNER JOIN modules.regra_avaliacao_serie_ano AS rasa ON (rasa.serie_id = serie.cod_serie AND rasa.ano_letivo = {$this->codigo('ano')})
                                                        INNER JOIN modules.regra_avaliacao ON (regra_avaliacao.id = rasa.regra_avaliacao_id)
-                                                            WHERE serie.cod_serie = {$this->ref_cod_serie}");
+                                                            WHERE serie.cod_serie = {$this->codigo('ref_cod_serie')}");
 
         if ($matriculasDependencia >= $matriculasDependenciaPermitida) {
             $this->mensagem = "A regra desta série limita a quantidade de matrículas de dependência para {$matriculasDependenciaPermitida}.";
@@ -896,7 +911,7 @@ return new class extends clsCadastro
         $this->mensagem = 'Exclusão efetuada com sucesso.<br />';
 
         throw new HttpResponseException(
-            response: new RedirectResponse(url: "educar_aluno_det.php?cod_aluno={$this->ref_cod_aluno}")
+            response: new RedirectResponse(url: "educar_aluno_det.php?cod_aluno={$this->codigo('ref_cod_aluno')}")
         );
     }
 
