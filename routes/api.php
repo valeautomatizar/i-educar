@@ -1,6 +1,9 @@
 <?php
 
 use App\Http\Controllers\Api\ActiveLookingMessageController;
+use App\Http\Controllers\Api\App\AlunoController;
+use App\Http\Controllers\Api\App\PainelController;
+use App\Http\Controllers\Api\App\SessaoController;
 use App\Http\Controllers\Api\CityController;
 use App\Http\Controllers\Api\CountryController;
 use App\Http\Controllers\Api\CourseController;
@@ -86,4 +89,12 @@ Route::group(['prefix' => 'resource', 'as' => 'api.resource.', 'namespace' => 'A
     Route::get('evaluation-rule', 'EvaluationRule\ResourceEvaluationRuleController@index')->name('evaluation-rule');
     Route::get('discipline', 'Discipline\ResourceDisciplineController@index')->name('discipline');
     Route::get('country', 'Country\ResourceCountryController@index')->name('country');
+});
+
+// Rotas da interface nova (educar-web). Usam a mesma sessão do login do i-Educar.
+Route::group(['middleware' => 'auth:sanctum', 'prefix' => 'app', 'as' => 'api.app.'], static function () {
+    Route::get('sessao', SessaoController::class)->name('sessao');
+    Route::get('painel', PainelController::class)->name('painel');
+    Route::get('alunos', [AlunoController::class, 'index'])->name('alunos.index');
+    Route::get('alunos/{aluno}', [AlunoController::class, 'show'])->whereNumber('aluno')->name('alunos.show');
 });
