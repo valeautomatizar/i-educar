@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\ActiveLookingMessageController;
 use App\Http\Controllers\Api\App\AlunoController;
 use App\Http\Controllers\Api\App\MatriculaController;
+use App\Http\Controllers\Api\App\NotasController;
 use App\Http\Controllers\Api\App\PainelController;
 use App\Http\Controllers\Api\App\SessaoController;
 use App\Http\Controllers\Api\CityController;
@@ -100,4 +101,7 @@ Route::group(['middleware' => 'auth:sanctum', 'prefix' => 'app', 'as' => 'api.ap
     Route::get('alunos/{aluno}', [AlunoController::class, 'show'])->whereNumber('aluno')->name('alunos.show');
     Route::get('matriculas/turmas', [MatriculaController::class, 'turmas'])->name('matriculas.turmas');
     Route::post('matriculas', [MatriculaController::class, 'store'])->name('matriculas.store');
+    Route::get('notas/turmas', [NotasController::class, 'turmas'])->name('notas.turmas');
+    Route::get('notas', [NotasController::class, 'index'])->name('notas.index');
+    Route::post('notas', [NotasController::class, 'store'])->name('notas.store');
 });
