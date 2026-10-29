@@ -169,7 +169,7 @@ class AreaConhecimento_Views_EditController extends Core_Controller_Page_EditCon
     public function Excluir()
     {
         if (isset($this->getRequest()->id)) {
-            $sql = 'SELECT id FROM modules.componente_curricular WHERE area_conhecimento_id = '. $this->getRequest()->id;
+            $sql = 'SELECT id FROM modules.componente_curricular WHERE area_conhecimento_id = ' . (int) $this->getRequest()->id;
             $db = new clsBanco;
             $db->Consulta($sql);
 

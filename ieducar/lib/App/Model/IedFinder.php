@@ -283,7 +283,7 @@ class App_Model_IedFinder extends CoreExt_Entity
         if ($instituicaoId === null) {
             $sql = 'SELECT s.cod_serie, s.nm_serie, c.nm_curso FROM pmieducar.serie s INNER JOIN pmieducar.curso c ON c.cod_curso = s.ref_cod_curso WHERE s.ativo = 1 AND c.ativo = 1 ORDER BY c.nm_curso, s.nm_serie';
         } else {
-            $sql = "SELECT s.cod_serie, s.nm_serie, c.nm_curso FROM pmieducar.serie s INNER JOIN pmieducar.curso c ON c.cod_curso = s.ref_cod_curso WHERE c.ref_cod_instituicao = {$instituicaoId} AND s.ativo = 1 AND c.ativo = 1 ORDER BY c.nm_curso, s.nm_serie";
+            $sql = 'SELECT s.cod_serie, s.nm_serie, c.nm_curso FROM pmieducar.serie s INNER JOIN pmieducar.curso c ON c.cod_curso = s.ref_cod_curso WHERE c.ref_cod_instituicao = ' . (int) $instituicaoId . ' AND s.ativo = 1 AND c.ativo = 1 ORDER BY c.nm_curso, s.nm_serie';
         }
 
         $db->Consulta($sql);
