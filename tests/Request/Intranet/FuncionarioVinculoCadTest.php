@@ -94,3 +94,14 @@ test('recusa excluir o vínculo de um funcionário', function () {
 test('com um código inexistente abre o formulário como cadastro', function () {
     expect(LegacyFields::from($this->get($this->new . '?cod_funcionario_vinculo=999999999')->assertOk()->getContent())['tipoacao'])->toBe('Novo');
 });
+
+test('código do vínculo com sql injetado é convertido para número antes da consulta', function () {
+    $bond = ($this->bond)();
+
+    $payload = LegacyFields::from($this->get(($this->edit)($bond))->assertOk()->getContent(), ['nm_vinculo' => 'Registro Editado', 'abreviatura' => 'RE']);
+    $payload['cod_vinculo'] = $bond->getKey() . ') OR (1=1';
+
+    $this->post($this->new, $payload)->assertOk()->assertSee($this->redirected, false);
+
+    expect($bond->refresh()->nm_vinculo)->toBe('Registro Editado');
+});

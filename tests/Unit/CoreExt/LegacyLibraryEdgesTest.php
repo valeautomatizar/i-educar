@@ -73,7 +73,9 @@ test('a unificação apaga os vínculos duplicados, guarda os dados antigos e re
         ->and(fn () => $unificacao([], 10, [11], 'x')->unifica())->toThrow(CoreExt_Exception::class, 'Parâmetro 3 deve ser um inteiro')
         ->and(fn () => App_Unificacao_Aluno::unifica('x', [1], 1, new clsBanco, 1))->toThrow(CoreExt_Exception::class, 'codAlunoPrincipal')
         ->and(fn () => App_Unificacao_Aluno::unifica(1, [], 1, new clsBanco, 1))->toThrow(CoreExt_Exception::class, 'codAlunos')
-        ->and(fn () => App_Unificacao_Aluno::unifica(1, [2], 'x', new clsBanco, 1))->toThrow(CoreExt_Exception::class, 'codPessoa');
+        ->and(fn () => App_Unificacao_Aluno::unifica(1, [2], 'x', new clsBanco, 1))->toThrow(CoreExt_Exception::class, 'codPessoa')
+        ->and(fn () => App_Unificacao_Aluno::unifica(1, ['2) OR (1=1'], 1, new clsBanco, 1))->toThrow(CoreExt_Exception::class, 'números inteiros')
+        ->and(fn () => $unificacao([], 10, ['11) OR (1=1'])->unifica())->toThrow(CoreExt_Exception::class, 'números inteiros');
 });
 
 test('a referência a um enum carrega a classe do arquivo e devolve nulo para valor fora dele', function () {

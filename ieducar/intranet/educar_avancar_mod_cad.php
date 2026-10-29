@@ -60,6 +60,13 @@ return new class extends clsCadastro
     {
         $this->permitir_cursando = config('legacy.app.rematricula.permitir_cursando');
 
+        // Os códigos e a data entram em consultas montadas à mão.
+        $this->ref_cod_escola = (int) $this->ref_cod_escola;
+        $this->ref_cod_curso = (int) $this->ref_cod_curso;
+        $this->ref_cod_serie = (int) $this->ref_cod_serie;
+        $this->ref_cod_turma = $this->ref_cod_turma ? (int) $this->ref_cod_turma : null;
+        $this->ano_letivo = (int) $this->ano_letivo;
+
         $anoLetivo = request('ano_letivo');
         $ano = request('ano');
 
@@ -83,6 +90,12 @@ return new class extends clsCadastro
         }
 
         $this->data_matricula = Portabilis_Date_Utils::brToPgSQL(date: $this->data_matricula);
+
+        if (!preg_match('/^\d{4}-\d{1,2}-\d{1,2}$/', (string) $this->data_matricula)) {
+            Session::now('notice', 'Informe a data da matrícula no formato dd/mm/aaaa.');
+
+            return false;
+        }
 
         if ($anoLetivos->count() > 1) {
             // Inalcançável: a restrição `escola_ano_letivo_ref_cod_escola_ano_unique` impede dois anos letivos iguais na escola.

@@ -269,3 +269,13 @@ test('diz se a escola tem turmas do fundamental em ciclos no ano', function () {
     $this->assertFalse((bool) (new clsPmieducarEscola($empty->getKey()))->possuiTurmasDoEnsinoFundamentalEmCiclos());
     $this->assertTrue((bool) (new clsPmieducarEscola($schoolClass->ref_ref_cod_escola))->possuiTurmasDoEnsinoFundamentalEmCiclos());
 });
+
+test('a lista trata a sigla com aspas como texto', function () {
+    LegacySchoolFactory::new()->create(['ref_cod_instituicao' => $this->institution, 'sigla' => 'EALFA']);
+    $quoted = LegacySchoolFactory::new()->create(['ref_cod_instituicao' => $this->institution, 'sigla' => "D'AV"])->getKey();
+
+    $found = static fn ($lista) => is_array($lista) ? array_column($lista, 'cod_escola') : [];
+
+    $this->assertSame([$quoted], $found((new clsPmieducarEscola)->lista(str_sigla: "D'A")));
+    $this->assertSame([], $found((new clsPmieducarEscola)->lista(str_sigla: "x' OR sigla LIKE '")));
+});

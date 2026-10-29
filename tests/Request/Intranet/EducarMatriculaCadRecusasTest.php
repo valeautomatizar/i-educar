@@ -468,3 +468,15 @@ test('desfaz a matrícula quando o evento de matrícula a recusa', function () {
 
     expect(($this->count)())->toBe(1);
 });
+
+test('a instituição com sql injetado não liga a regra do mesmo bairro', function () {
+    $address = fn (int $person, string $neighborhood) => PersonHasPlaceFactory::new()->create([
+        'person_id' => $person,
+        'place_id' => PlaceFactory::new()->create(['neighborhood' => $neighborhood]),
+    ]);
+
+    $address($this->scenario->school->ref_idpes, 'Centro');
+    $address($this->student->ref_idpes, 'Vila Nova');
+
+    ($this->accepted)(['ref_cod_instituicao' => $this->scenario->institution . ' AND false UNION SELECT true']);
+});

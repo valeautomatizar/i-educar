@@ -196,3 +196,11 @@ test('volta para a listagem do aluno quando o histórico não existe', function 
     $this->get('/intranet/educar_historico_escolar_det.php?ref_cod_aluno=' . $this->student->getKey() . '&sequencial=99')
         ->assertRedirect('educar_historico_escolar_lst.php?ref_cod_aluno=' . $this->student->getKey());
 });
+
+test('os códigos da url viram números antes das consultas', function () {
+    $history = ($this->history)();
+
+    $this->get('/intranet/educar_historico_escolar_det.php?ref_cod_aluno=' . $this->student->getKey() . ' OR true&sequencial=' . $history->sequencial . ' OR true')
+        ->assertOk()
+        ->assertSee('ESCOLA ANTIGA');
+});

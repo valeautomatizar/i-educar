@@ -26,7 +26,8 @@ class ExportService
     {
         DB::setDefaultConnection($this->export->getConnectionName());
 
-        $exporter = new ExporterSqlExport($this->export->getExportQuery()->toSql());
+        $query = $this->export->getExportQuery();
+        $exporter = new ExporterSqlExport($query->toSql(), true, $query->getBindings());
         $success = $exporter->store($this->getFilename(), $this->disk, $this->fileType);
         if ($success) {
             $url = $this->getUrl();

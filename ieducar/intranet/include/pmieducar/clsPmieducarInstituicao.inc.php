@@ -1209,6 +1209,7 @@ class clsPmieducarInstituicao extends Model
         }
 
         if (is_string($str_ref_sigla_uf)) {
+            $str_ref_sigla_uf = (new clsBanco)->escapeString($str_ref_sigla_uf);
             $filtros .= "{$whereAnd} ref_sigla_uf LIKE '%{$str_ref_sigla_uf}%'";
             $whereAnd = ' AND ';
         }
@@ -1219,16 +1220,19 @@ class clsPmieducarInstituicao extends Model
         }
 
         if (is_string($str_cidade)) {
+            $str_cidade = (new clsBanco)->escapeString($str_cidade);
             $filtros .= "{$whereAnd} cidade LIKE '%{$str_cidade}%'";
             $whereAnd = ' AND ';
         }
 
         if (is_string($str_bairro)) {
+            $str_bairro = (new clsBanco)->escapeString($str_bairro);
             $filtros .= "{$whereAnd} bairro LIKE '%{$str_bairro}%'";
             $whereAnd = ' AND ';
         }
 
         if (is_string($str_logradouro)) {
+            $str_logradouro = (new clsBanco)->escapeString($str_logradouro);
             $filtros .= "{$whereAnd} logradouro LIKE '%{$str_logradouro}%'";
             $whereAnd = ' AND ';
         }
@@ -1239,11 +1243,13 @@ class clsPmieducarInstituicao extends Model
         }
 
         if (is_string($str_complemento)) {
+            $str_complemento = (new clsBanco)->escapeString($str_complemento);
             $filtros .= "{$whereAnd} complemento LIKE '%{$str_complemento}%'";
             $whereAnd = ' AND ';
         }
 
         if (is_string($str_nm_responsavel)) {
+            $str_nm_responsavel = (new clsBanco)->escapeString($str_nm_responsavel);
             $filtros .= "{$whereAnd} nm_responsavel LIKE '%{$str_nm_responsavel}%'";
             $whereAnd = ' AND ';
         }

@@ -3,6 +3,7 @@
 use App\Models\Exporter\Enrollment;
 use App\Models\Exporter\Student;
 use App\Models\Exporter\Teacher;
+use App\Models\LegacyEmployee;
 use Database\Factories\Exporter\ExportFactory;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Tests\TestCase;
@@ -26,7 +27,8 @@ test('monta a consulta da exportação com as relações pedidas e conta os regi
     $exporter = $export->getExporter();
 
     expect($exporter->query())
-        ->toContain('"fisica" as "mf"', '"fisica" as "ff"', '"fisica" as "gf"', '"aluno" as "aluno"', 'tipo_transporte', 'exporter_student.year = 2030', 'exporter_student.school_id in (1, 2)')
+        ->toContain('"fisica" as "mf"', '"fisica" as "ff"', '"fisica" as "gf"', '"aluno" as "aluno"', 'tipo_transporte', '"exporter_student"."year" = ?', '"exporter_student"."school_id" in (?, ?)')
+        ->and($export->getExportQuery()->getBindings())->toBe([2030, 1, 2])
         ->and($exporter->getExportCount())->toBe(0);
 });
 
@@ -36,8 +38,41 @@ test('os filtros de escola por lista de matrículas viram contenção de array, 
         ['column' => 'exporter_student_grouped_registration.school_filter_id', 'operator' => '@>', 'value' => 3],
     ]]);
 
-    expect($export->getExportQuery()->toSql())
-        ->toContain("(exporter_student_grouped_registration.school_filter_id @> ('{1}') or exporter_student_grouped_registration.school_filter_id @> ('{2}'))", "school_filter_id @> ('{3}')");
+    $query = $export->getExportQuery();
+
+    expect($query->toSql())
+        ->toContain('(exporter_student_grouped_registration.school_filter_id @> ? or exporter_student_grouped_registration.school_filter_id @> ?)', 'school_filter_id @> ?')
+        ->and($query->getBindings())->toBe(['{1}', '{2}', '{3}'])
+        ->and($query->count())->toBe(0);
+});
+
+test('os valores dos filtros vão como parâmetros e não entram na consulta', function () {
+    $injection = '1) OR 1=1; DELETE FROM pmieducar.aluno; --';
+
+    $export = ExportFactory::new()->create(['model' => Student::class, 'fields' => ['student_id'], 'filters' => [
+        ['column' => 'exporter_student_grouped_registration.status', 'operator' => '=', 'value' => $injection],
+        ['column' => 'exporter_student_grouped_registration.school_id', 'operator' => 'in', 'value' => [$injection]],
+        ['column' => 'exporter_student_grouped_registration.school_filter_id', 'operator' => '@>', 'value' => $injection],
+    ]]);
+
+    $query = $export->getExportQuery();
+
+    expect($query->toSql())->not->toContain('DELETE')
+        ->and($query->getBindings())->toBe([$injection, $injection, '{1}']);
+});
+
+test('ignora filtro com coluna fora do padrão e relação que o modelo não exporta', function () {
+    $export = ExportFactory::new()->create(['model' => Student::class, 'fields' => ['student_id', 'delete.x'], 'filters' => [
+        ['column' => 'status = 1 OR 1=1 --', 'operator' => '=', 'value' => 1],
+    ]]);
+
+    expect($export->getExportQuery()->toSql())->not->toContain('1=1')->not->toContain('delete');
+});
+
+test('não monta exportação de modelo que não está na lista permitida', function () {
+    $export = ExportFactory::new()->make(['model' => LegacyEmployee::class, 'fields' => ['senha']]);
+
+    expect(fn () => $export->getExportQuery())->toThrow(InvalidArgumentException::class);
 });
 
 test('monta a consulta dos professores com as alocações', function () {

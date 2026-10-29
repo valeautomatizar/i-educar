@@ -36,3 +36,16 @@ test('lista as agendas do usuário e as que ele responde, filtrando pelo nome', 
         ->assertSee('Agenda Alfa')
         ->assertDontSee('Agenda Beta');
 });
+
+test('pesquisa com sql injetado é tratada como texto', function () {
+    DB::table('portal.agenda')->insert([
+        'nm_agenda' => 'Agenda Delta',
+        'ref_ref_cod_pessoa_cad' => $this->user->getKey(),
+        'ref_ref_cod_pessoa_own' => $this->user->getKey(),
+        'data_cad' => now(),
+    ]);
+
+    $this->get('/intranet/agenda_responsavel.php?' . http_build_query(['pesquisa' => "x') OR (1=1"]))
+        ->assertOk()
+        ->assertDontSee('Agenda Delta');
+});

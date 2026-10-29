@@ -55,8 +55,8 @@ return new class extends clsDetalhe
     {
         $this->titulo = 'Histórico Escolar - Detalhe';
 
-        $this->sequencial = $_GET['sequencial'];
-        $this->ref_cod_aluno = $_GET['ref_cod_aluno'];
+        $this->sequencial = (int) $_GET['sequencial'];
+        $this->ref_cod_aluno = (int) $_GET['ref_cod_aluno'];
 
         $historicoModel = LegacySchoolHistory::forStudentSequential($this->ref_cod_aluno, $this->sequencial)->first();
 
