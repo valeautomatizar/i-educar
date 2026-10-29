@@ -515,7 +515,7 @@ SQL;
             }
 
             if (is_array($anosLetivos)) {
-                $data['anos_letivos'] = DB::raw("'{" . implode(',', $anosLetivos) . "}'::smallint[]");
+                $data['anos_letivos'] = DB::raw("'{" . implode(',', array_map('intval', (array) $anosLetivos)) . "}'::smallint[]");
             }
 
             if (!empty($data)) {
@@ -541,7 +541,7 @@ SQL;
                 'ano_escolar_id' => $serieId,
                 'carga_horaria' => $cargaHoraria,
                 'tipo_nota' => $tipoNota === 0 ? null : $tipoNota,
-                'anos_letivos' => DB::raw("'{" . implode(',', $anosLetivos) . "}'::smallint[]"),
+                'anos_letivos' => DB::raw("'{" . implode(',', array_map('intval', (array) $anosLetivos)) . "}'::smallint[]"),
                 'hora_falta' => $horaFalta,
             ]);
         }

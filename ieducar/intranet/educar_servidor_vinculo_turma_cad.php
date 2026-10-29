@@ -690,7 +690,7 @@ return new class extends clsCadastro
         ];
 
         if (is_array($this->area_itinerario)) {
-            $data['area_itinerario'] = DB::raw("'{" . implode(',', $this->area_itinerario) . "}'::integer[]");
+            $data['area_itinerario'] = DB::raw("'{" . implode(',', array_map('intval', $this->area_itinerario)) . "}'::integer[]");
         } else {
             $data['area_itinerario'] = null;
         }

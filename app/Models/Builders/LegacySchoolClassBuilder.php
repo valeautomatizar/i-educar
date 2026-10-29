@@ -204,6 +204,6 @@ class LegacySchoolClassBuilder extends LegacyBuilder
      */
     public function whereDayWeek(string $dayWeek): self
     {
-        return $this->whereRaw("dias_semana && ('{{$dayWeek}}')");
+        return $this->whereRaw('dias_semana && ?', ['{' . implode(',', array_map('intval', explode(',', $dayWeek))) . '}']);
     }
 }
