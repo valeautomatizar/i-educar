@@ -634,21 +634,25 @@ class clsPmieducarMatricula extends Model
         }
 
         if (is_string($date_data_cadastro_ini)) {
+            $date_data_cadastro_ini = (new clsBanco)->escapeString($date_data_cadastro_ini);
             $filtros .= "{$whereAnd} m.data_cadastro >= '{$date_data_cadastro_ini}'";
             $whereAnd = ' AND ';
         }
 
         if (is_string($date_data_cadastro_fim)) {
+            $date_data_cadastro_fim = (new clsBanco)->escapeString($date_data_cadastro_fim);
             $filtros .= "{$whereAnd} m.data_cadastro <= '{$date_data_cadastro_fim}'";
             $whereAnd = ' AND ';
         }
 
         if (is_string($date_data_exclusao_ini)) {
+            $date_data_exclusao_ini = (new clsBanco)->escapeString($date_data_exclusao_ini);
             $filtros .= "{$whereAnd} m.data_exclusao >= '{$date_data_exclusao_ini}'";
             $whereAnd = ' AND ';
         }
 
         if (is_string($date_data_exclusao_fim)) {
+            $date_data_exclusao_fim = (new clsBanco)->escapeString($date_data_exclusao_fim);
             $filtros .= "{$whereAnd} m.data_exclusao <= '{$date_data_exclusao_fim}'";
             $whereAnd = ' AND ';
         }
@@ -889,21 +893,25 @@ class clsPmieducarMatricula extends Model
         }
 
         if (is_string($date_data_cadastro_ini)) {
+            $date_data_cadastro_ini = (new clsBanco)->escapeString($date_data_cadastro_ini);
             $filtros .= "{$whereAnd} m.data_cadastro >= '{$date_data_cadastro_ini}'";
             $whereAnd = ' AND ';
         }
 
         if (is_string($date_data_cadastro_fim)) {
+            $date_data_cadastro_fim = (new clsBanco)->escapeString($date_data_cadastro_fim);
             $filtros .= "{$whereAnd} m.data_cadastro <= '{$date_data_cadastro_fim}'";
             $whereAnd = ' AND ';
         }
 
         if (is_string($date_data_exclusao_ini)) {
+            $date_data_exclusao_ini = (new clsBanco)->escapeString($date_data_exclusao_ini);
             $filtros .= "{$whereAnd} m.data_exclusao >= '{$date_data_exclusao_ini}'";
             $whereAnd = ' AND ';
         }
 
         if (is_string($date_data_exclusao_fim)) {
+            $date_data_exclusao_fim = (new clsBanco)->escapeString($date_data_exclusao_fim);
             $filtros .= "{$whereAnd} m.data_exclusao <= '{$date_data_exclusao_fim}'";
             $whereAnd = ' AND ';
         }

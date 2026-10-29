@@ -918,6 +918,7 @@ class clsPmieducarTurma extends Model
             $whereAnd = ' AND ';
         }
         if (is_string($str_sgl_turma)) {
+            $str_sgl_turma = (new clsBanco)->escapeString($str_sgl_turma);
             $filtros .= "{$whereAnd} t.sgl_turma LIKE '%{$str_sgl_turma}%'";
             $whereAnd = ' AND ';
         }
@@ -930,18 +931,22 @@ class clsPmieducarTurma extends Model
             $whereAnd = ' AND ';
         }
         if (is_string($date_data_cadastro_ini)) {
+            $date_data_cadastro_ini = (new clsBanco)->escapeString($date_data_cadastro_ini);
             $filtros .= "{$whereAnd} t.data_cadastro >= '{$date_data_cadastro_ini}'";
             $whereAnd = ' AND ';
         }
         if (is_string($date_data_cadastro_fim)) {
+            $date_data_cadastro_fim = (new clsBanco)->escapeString($date_data_cadastro_fim);
             $filtros .= "{$whereAnd} t.data_cadastro <= '{$date_data_cadastro_fim}'";
             $whereAnd = ' AND ';
         }
         if (is_string($date_data_exclusao_ini)) {
+            $date_data_exclusao_ini = (new clsBanco)->escapeString($date_data_exclusao_ini);
             $filtros .= "{$whereAnd} t.data_exclusao >= '{$date_data_exclusao_ini}'";
             $whereAnd = ' AND ';
         }
         if (is_string($date_data_exclusao_fim)) {
+            $date_data_exclusao_fim = (new clsBanco)->escapeString($date_data_exclusao_fim);
             $filtros .= "{$whereAnd} t.data_exclusao <= '{$date_data_exclusao_fim}'";
             $whereAnd = ' AND ';
         }
@@ -957,34 +962,42 @@ class clsPmieducarTurma extends Model
             $whereAnd = ' AND ';
         }
         if (($time_hora_inicial_ini)) {
+            $time_hora_inicial_ini = (new clsBanco)->escapeString($time_hora_inicial_ini);
             $filtros .= "{$whereAnd} t.hora_inicial >= '{$time_hora_inicial_ini}'";
             $whereAnd = ' AND ';
         }
         if (($time_hora_inicial_fim)) {
+            $time_hora_inicial_fim = (new clsBanco)->escapeString($time_hora_inicial_fim);
             $filtros .= "{$whereAnd} t.hora_inicial <= '{$time_hora_inicial_fim}'";
             $whereAnd = ' AND ';
         }
         if (($time_hora_final_ini)) {
+            $time_hora_final_ini = (new clsBanco)->escapeString($time_hora_final_ini);
             $filtros .= "{$whereAnd} t.hora_final >= '{$time_hora_final_ini}'";
             $whereAnd = ' AND ';
         }
         if (($time_hora_final_fim)) {
+            $time_hora_final_fim = (new clsBanco)->escapeString($time_hora_final_fim);
             $filtros .= "{$whereAnd} t.hora_final <= '{$time_hora_final_fim}'";
             $whereAnd = ' AND ';
         }
         if (($time_hora_inicio_intervalo_ini)) {
+            $time_hora_inicio_intervalo_ini = (new clsBanco)->escapeString($time_hora_inicio_intervalo_ini);
             $filtros .= "{$whereAnd} t.hora_inicio_intervalo >= '{$time_hora_inicio_intervalo_ini}'";
             $whereAnd = ' AND ';
         }
         if (($time_hora_inicio_intervalo_fim)) {
+            $time_hora_inicio_intervalo_fim = (new clsBanco)->escapeString($time_hora_inicio_intervalo_fim);
             $filtros .= "{$whereAnd} t.hora_inicio_intervalo <= '{$time_hora_inicio_intervalo_fim}'";
             $whereAnd = ' AND ';
         }
         if (($time_hora_fim_intervalo_ini)) {
+            $time_hora_fim_intervalo_ini = (new clsBanco)->escapeString($time_hora_fim_intervalo_ini);
             $filtros .= "{$whereAnd} t.hora_fim_intervalo >= '{$time_hora_fim_intervalo_ini}'";
             $whereAnd = ' AND ';
         }
         if (($time_hora_fim_intervalo_fim)) {
+            $time_hora_fim_intervalo_fim = (new clsBanco)->escapeString($time_hora_fim_intervalo_fim);
             $filtros .= "{$whereAnd} t.hora_fim_intervalo <= '{$time_hora_fim_intervalo_fim}'";
             $whereAnd = ' AND ';
         }
@@ -1126,10 +1139,12 @@ class clsPmieducarTurma extends Model
             $whereAnd = ' AND ';
         }
         if (is_string($str_nm_turma)) {
+            $str_nm_turma = (new clsBanco)->escapeString($str_nm_turma);
             $filtros .= "{$whereAnd} exists(select 1 from pmieducar.turma where unaccent(nm_turma) ILIKE unaccent('%{$str_nm_turma}%'))";
             $whereAnd = ' AND ';
         }
         if (is_string($str_sgl_turma)) {
+            $str_sgl_turma = (new clsBanco)->escapeString($str_sgl_turma);
             $filtros .= "{$whereAnd} t.sgl_turma LIKE '%{$str_sgl_turma}%'";
             $whereAnd = ' AND ';
         }
@@ -1142,18 +1157,22 @@ class clsPmieducarTurma extends Model
             $whereAnd = ' AND ';
         }
         if (is_string($date_data_cadastro_ini)) {
+            $date_data_cadastro_ini = (new clsBanco)->escapeString($date_data_cadastro_ini);
             $filtros .= "{$whereAnd} t.data_cadastro >= '{$date_data_cadastro_ini}'";
             $whereAnd = ' AND ';
         }
         if (is_string($date_data_cadastro_fim)) {
+            $date_data_cadastro_fim = (new clsBanco)->escapeString($date_data_cadastro_fim);
             $filtros .= "{$whereAnd} t.data_cadastro <= '{$date_data_cadastro_fim}'";
             $whereAnd = ' AND ';
         }
         if (is_string($date_data_exclusao_ini)) {
+            $date_data_exclusao_ini = (new clsBanco)->escapeString($date_data_exclusao_ini);
             $filtros .= "{$whereAnd} t.data_exclusao >= '{$date_data_exclusao_ini}'";
             $whereAnd = ' AND ';
         }
         if (is_string($date_data_exclusao_fim)) {
+            $date_data_exclusao_fim = (new clsBanco)->escapeString($date_data_exclusao_fim);
             $filtros .= "{$whereAnd} t.data_exclusao <= '{$date_data_exclusao_fim}'";
             $whereAnd = ' AND ';
         }
@@ -1169,34 +1188,42 @@ class clsPmieducarTurma extends Model
             $whereAnd = ' AND ';
         }
         if (($time_hora_inicial_ini)) {
+            $time_hora_inicial_ini = (new clsBanco)->escapeString($time_hora_inicial_ini);
             $filtros .= "{$whereAnd} t.hora_inicial >= '{$time_hora_inicial_ini}'";
             $whereAnd = ' AND ';
         }
         if (($time_hora_inicial_fim)) {
+            $time_hora_inicial_fim = (new clsBanco)->escapeString($time_hora_inicial_fim);
             $filtros .= "{$whereAnd} t.hora_inicial <= '{$time_hora_inicial_fim}'";
             $whereAnd = ' AND ';
         }
         if (($time_hora_final_ini)) {
+            $time_hora_final_ini = (new clsBanco)->escapeString($time_hora_final_ini);
             $filtros .= "{$whereAnd} t.hora_final >= '{$time_hora_final_ini}'";
             $whereAnd = ' AND ';
         }
         if (($time_hora_final_fim)) {
+            $time_hora_final_fim = (new clsBanco)->escapeString($time_hora_final_fim);
             $filtros .= "{$whereAnd} t.hora_final <= '{$time_hora_final_fim}'";
             $whereAnd = ' AND ';
         }
         if (($time_hora_inicio_intervalo_ini)) {
+            $time_hora_inicio_intervalo_ini = (new clsBanco)->escapeString($time_hora_inicio_intervalo_ini);
             $filtros .= "{$whereAnd} t.hora_inicio_intervalo >= '{$time_hora_inicio_intervalo_ini}'";
             $whereAnd = ' AND ';
         }
         if (($time_hora_inicio_intervalo_fim)) {
+            $time_hora_inicio_intervalo_fim = (new clsBanco)->escapeString($time_hora_inicio_intervalo_fim);
             $filtros .= "{$whereAnd} t.hora_inicio_intervalo <= '{$time_hora_inicio_intervalo_fim}'";
             $whereAnd = ' AND ';
         }
         if (($time_hora_fim_intervalo_ini)) {
+            $time_hora_fim_intervalo_ini = (new clsBanco)->escapeString($time_hora_fim_intervalo_ini);
             $filtros .= "{$whereAnd} t.hora_fim_intervalo >= '{$time_hora_fim_intervalo_ini}'";
             $whereAnd = ' AND ';
         }
         if (($time_hora_fim_intervalo_fim)) {
+            $time_hora_fim_intervalo_fim = (new clsBanco)->escapeString($time_hora_fim_intervalo_fim);
             $filtros .= "{$whereAnd} t.hora_fim_intervalo <= '{$time_hora_fim_intervalo_fim}'";
             $whereAnd = ' AND ';
         }

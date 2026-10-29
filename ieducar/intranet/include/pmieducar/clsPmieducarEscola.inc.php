@@ -2497,6 +2497,7 @@ class clsPmieducarEscola extends Model
         }
 
         if (is_string($str_sigla)) {
+            $str_sigla = (new clsBanco)->escapeString($str_sigla);
             $filtros .= "{$whereAnd} sigla LIKE '%{$str_sigla}%'";
             $whereAnd = ' AND ';
         }
@@ -2511,6 +2512,7 @@ class clsPmieducarEscola extends Model
 
         if (is_string($str_nome)) {
             $str_nm = $db->escapeString($str_nome);
+            $str_nm = (new clsBanco)->escapeString($str_nm);
             $filtros .= "{$whereAnd} unaccent(nome) ILIKE unaccent('%{$str_nm}%')";
             $whereAnd = ' AND ';
         }

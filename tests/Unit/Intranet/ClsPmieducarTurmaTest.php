@@ -553,3 +553,11 @@ test('lista3 filtra pelo nome', function () {
     $this->assertContains($wanted->getKey(), array_column((new clsPmieducarTurma)->lista3(str_nm_turma: 'Alfa'), 'cod_turma'));
     $this->assertFalse((new clsPmieducarTurma)->lista3(str_nm_turma: 'Nome que nenhuma turma tem'));
 });
+
+test('lista3 trata o nome com aspas como texto', function () {
+    $quoted = $this->scenario->schoolClass(['nm_turma' => "Turma D'Ávila", 'sgl_turma' => "D'A"])->getKey();
+
+    $this->assertContains($quoted, array_column((new clsPmieducarTurma)->lista3(str_nm_turma: "D'Ávila") ?: [], 'cod_turma'));
+    $this->assertContains($quoted, array_column((new clsPmieducarTurma)->lista3(str_sgl_turma: "D'A") ?: [], 'cod_turma'));
+    $this->assertFalse((new clsPmieducarTurma)->lista3(str_nm_turma: "x') OR ('1'='1"));
+});
