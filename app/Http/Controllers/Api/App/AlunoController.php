@@ -7,6 +7,7 @@ use App\Models\LegacyRegistration;
 use App\Models\LegacyStudent;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Busca e ficha do aluno para a interface nova.
@@ -85,7 +86,7 @@ class AlunoController extends Controller
             'situacaoTexto' => $atual ? SituacaoMatricula::texto((int) $atual->aprovado) : null,
             'presenca' => null,
             'faltas' => null,
-            'media' => null,
+            'media' => $this->mediaGeral($atual),
             'responsavel' => $student->getGuardianName(),
             'transporte' => null,
             'alertas' => [],
@@ -97,6 +98,25 @@ class AlunoController extends Controller
                 'situacaoTexto' => SituacaoMatricula::texto((int) $m->aprovado),
             ])->values(),
         ];
+    }
+
+    /**
+     * Média das médias dos componentes na matrícula atual, ou null sem notas.
+     */
+    private function mediaGeral(?LegacyRegistration $matricula): ?float
+    {
+        if (!$matricula) {
+            return null;
+        }
+
+        $media = DB::table('modules.nota_componente_curricular_media as media')
+            ->join('modules.nota_aluno', 'nota_aluno.id', '=', 'media.nota_aluno_id')
+            ->where('nota_aluno.matricula_id', $matricula->getKey())
+            // Média conceitual (letra) fica de fora.
+            ->whereRaw("media.media_arredondada ~ '^[0-9]+(\\.[0-9]+)?$'")
+            ->avg(DB::raw('media.media_arredondada::numeric'));
+
+        return $media === null ? null : round((float) $media, 1);
     }
 
     private function detalheBusca(LegacyStudent $aluno): string
