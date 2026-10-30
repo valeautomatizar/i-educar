@@ -6,9 +6,11 @@ use App\Http\Controllers\Controller;
 use App\Models\DailyAttendance;
 use App\Models\LegacyRegistration;
 use App\Models\LegacyStudent;
+use App\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Gate;
 
 /**
  * Busca e ficha do aluno para a interface nova.
@@ -17,8 +19,13 @@ class AlunoController extends Controller
 {
     use EscopoEscolas;
 
+    /** Processo "Alunos" no controle de permissões. */
+    private const PROCESSO_ALUNO = 680;
+
     public function index(Request $request)
     {
+        $this->autorizar($request->user());
+
         $busca = trim((string) $request->query('busca', ''));
 
         if (mb_strlen($busca) < 2) {
@@ -57,6 +64,8 @@ class AlunoController extends Controller
 
     public function show(Request $request, int $aluno)
     {
+        $this->autorizar($request->user());
+
         $escolas = $this->escolasDoUsuario($request->user());
 
         $student = LegacyStudent::query()
@@ -99,6 +108,13 @@ class AlunoController extends Controller
                 'situacaoTexto' => SituacaoMatricula::texto((int) $m->aprovado),
             ])->values(),
         ];
+    }
+
+    private function autorizar(User $user): void
+    {
+        if ($user->isLibrary() || !Gate::forUser($user)->allows('view', self::PROCESSO_ALUNO)) {
+            abort(403, 'Seu usuário não tem permissão para ver o cadastro de alunos.');
+        }
     }
 
     /**
