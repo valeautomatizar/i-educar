@@ -113,6 +113,7 @@ Route::group(['middleware' => 'auth:sanctum', 'prefix' => 'app', 'as' => 'api.ap
     // Diário do professor: o que foi ensinado na aula e anotações.
     Route::get('diario/aula', [DiarioController::class, 'aula'])->name('diario.aula');
     Route::put('diario/aula', [DiarioController::class, 'salvarAula'])->name('diario.aula.salvar');
+    Route::get('diario/habilidades', [DiarioController::class, 'habilidades'])->name('diario.habilidades');
     Route::get('diario/anotacoes', [DiarioController::class, 'anotacoes'])->name('diario.anotacoes');
     Route::post('diario/anotacoes', [DiarioController::class, 'salvarAnotacao'])->name('diario.anotacoes.salvar');
     Route::delete('diario/anotacoes/{anotacao}', [DiarioController::class, 'apagarAnotacao'])->whereNumber('anotacao')->name('diario.anotacoes.apagar');

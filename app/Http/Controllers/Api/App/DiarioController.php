@@ -3,12 +3,15 @@
 namespace App\Http\Controllers\Api\App;
 
 use App\Http\Controllers\Controller;
+use App\Models\BnccSkill;
 use App\Models\ClassNote;
 use App\Models\LegacyEnrollment;
 use App\Models\LegacySchoolClass;
 use App\Models\LessonRecord;
 use App\User;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
 
 /**
  * Diário do professor na interface nova: o que foi ensinado em cada aula
@@ -20,6 +23,12 @@ class DiarioController extends Controller
 
     /** Tamanho máximo dos textos, para caber numa tela de celular sem susto. */
     private const MAX_TEXTO = 5000;
+
+    /** Quantas habilidades da BNCC uma aula pode ter. */
+    private const MAX_HABILIDADES = 10;
+
+    /** Quantas habilidades a busca devolve. */
+    private const SUGESTOES = 8;
 
     public function aula(Request $request)
     {
@@ -42,8 +51,8 @@ class DiarioController extends Controller
             ->where('discipline_id', $componenteId)
             ->where('user_id', $user->getKey());
 
-        $aula = (clone $doProfessor)->whereDate('date', $data)->first();
-        $ultima = (clone $doProfessor)->whereDate('date', '<', $data)->orderByDesc('date')->first();
+        $aula = (clone $doProfessor)->whereDate('date', $data)->with('skills')->first();
+        $ultima = (clone $doProfessor)->whereDate('date', '<', $data)->orderByDesc('date')->with('skills')->first();
 
         return [
             'turma' => $this->dadosDaTurma($turma),
@@ -65,7 +74,11 @@ class DiarioController extends Controller
             'componente' => ['nullable', 'integer'],
             'data' => ['required', 'date_format:Y-m-d', 'before_or_equal:today'],
             'conteudo' => ['required', 'string', 'max:' . self::MAX_TEXTO],
+            'habilidades' => ['nullable', 'array', 'max:' . self::MAX_HABILIDADES],
+            'habilidades.*' => ['string', 'distinct', Rule::exists('bncc_skills', 'code')],
         ], [
+            'habilidades.max' => 'Escolha no máximo ' . self::MAX_HABILIDADES . ' habilidades.',
+            'habilidades.*.exists' => 'Habilidade da BNCC não encontrada.',
             'data.before_or_equal' => 'Não é possível registrar uma aula que ainda não aconteceu.',
             'conteudo.required' => 'Escreva o que você ensinou nesta aula.',
             'conteudo.max' => 'O texto está muito longo. Use no máximo ' . self::MAX_TEXTO . ' letras.',
@@ -74,16 +87,66 @@ class DiarioController extends Controller
         $turma = $this->turmaPermitida($user, (int) $dados['turma']);
         $componenteId = $this->componenteEscolhido($this->componentesPermitidos($user, $turma), $dados['componente'] ?? null);
 
-        $aula = LessonRecord::query()->updateOrCreate([
-            'school_class_id' => $turma->getKey(),
-            'discipline_id' => $componenteId,
-            'user_id' => $user->getKey(),
-            'date' => $dados['data'],
-        ], [
-            'content' => trim($dados['conteudo']),
+        $aula = DB::transaction(function () use ($turma, $componenteId, $user, $dados) {
+            $aula = LessonRecord::query()->updateOrCreate([
+                'school_class_id' => $turma->getKey(),
+                'discipline_id' => $componenteId,
+                'user_id' => $user->getKey(),
+                'date' => $dados['data'],
+            ], [
+                'content' => trim($dados['conteudo']),
+            ]);
+
+            // Sem o campo, as habilidades já ligadas à aula ficam como estão.
+            if (array_key_exists('habilidades', $dados)) {
+                $aula->skills()->sync(collect($dados['habilidades'] ?? [])->values()->mapWithKeys(fn ($codigo, $posicao) => [$codigo => ['position' => $posicao]])->all());
+            }
+
+            return $aula;
+        });
+
+        return response()->json(['aula' => $this->dadosDaAula($aula->load('skills'))], $aula->wasRecentlyCreated ? 201 : 200);
+    }
+
+    /**
+     * Habilidades da BNCC para a aula: as que combinam com as palavras
+     * (o que o professor escreveu, ou uma busca), primeiro as do componente
+     * e do ano da turma.
+     */
+    public function habilidades(Request $request)
+    {
+        $user = $request->user();
+        $this->autorizar($user);
+
+        $dados = $request->validate([
+            'turma' => ['required', 'integer'],
+            'componente' => ['nullable', 'integer'],
+            'busca' => ['nullable', 'string', 'max:' . self::MAX_TEXTO],
         ]);
 
-        return response()->json(['aula' => $this->dadosDaAula($aula)], $aula->wasRecentlyCreated ? 201 : 200);
+        $turma = $this->turmaPermitida($user, (int) $dados['turma']);
+        $componentes = $this->componentesPermitidos($user, $turma);
+        $componenteId = $this->componenteEscolhido($componentes, $dados['componente'] ?? null);
+        $nomeComponente = $componentes->firstWhere('id', $componenteId)['nome'] ?? null;
+
+        $etapa = $this->etapaDaBncc($turma);
+        $ano = $etapa === 'EF' ? $this->anoDaTurma($turma) : null;
+        $busca = trim($dados['busca'] ?? '');
+
+        // Quem já sabe o código (ex.: EF05MA03) acha a habilidade direto.
+        $habilidades = preg_match('/^E[FI]\d{2}[A-Z0-9]*$/i', $busca)
+            ? BnccSkill::query()->where('code', 'like', strtoupper($busca) . '%')->orderBy('code')->limit(self::SUGESTOES)->get()
+            : BnccSkill::query()
+                ->sugeridas(BnccSkill::palavras($busca), $this->componenteDaBncc($nomeComponente), $ano, $etapa)
+                ->limit(self::SUGESTOES)
+                ->get();
+
+        return [
+            'etapa' => $etapa,
+            'ano' => $ano,
+            'componente' => $this->componenteDaBncc($nomeComponente),
+            'habilidades' => $habilidades->map(fn (BnccSkill $h) => $this->dadosDaHabilidade($h))->values(),
+        ];
     }
 
     public function anotacoes(Request $request)
@@ -237,8 +300,70 @@ class DiarioController extends Controller
             'id' => $aula->id,
             'data' => $aula->date->format('Y-m-d'),
             'conteudo' => $aula->content,
+            'habilidades' => $aula->skills->map(fn (BnccSkill $h) => $this->dadosDaHabilidade($h))->values(),
             'atualizadoEm' => $aula->updated_at?->toIso8601String(),
         ];
+    }
+
+    private function dadosDaHabilidade(BnccSkill $habilidade): array
+    {
+        return [
+            'codigo' => $habilidade->code,
+            'texto' => $habilidade->description,
+            'componente' => $habilidade->component,
+        ];
+    }
+
+    /** EI para turma de educação infantil, EF quando dá para saber o ano, ou null. */
+    private function etapaDaBncc(LegacySchoolClass $turma): ?string
+    {
+        $nomes = BnccSkill::normalizar(($turma->course?->name ?? '') . ' ' . ($turma->grade?->name ?? ''));
+
+        if (preg_match('/infantil|creche|pre[ -]?escola|\bpre\b|maternal|bercario/', $nomes)) {
+            return 'EI';
+        }
+
+        return $this->anoDaTurma($turma) ? 'EF' : null;
+    }
+
+    /** Ano do Ensino Fundamental pelo nome da série ("5º ano", "5 ano", "Quinto ano"). */
+    private function anoDaTurma(LegacySchoolClass $turma): ?int
+    {
+        $serie = BnccSkill::normalizar($turma->grade?->name ?? '');
+
+        if (preg_match('/\b([1-9])\s*(o|a)?\s*ano\b/', $serie, $achado)) {
+            return (int) $achado[1];
+        }
+
+        $ordinais = ['primeiro', 'segundo', 'terceiro', 'quarto', 'quinto', 'sexto', 'setimo', 'oitavo', 'nono'];
+
+        foreach ($ordinais as $posicao => $ordinal) {
+            if (preg_match("/\\b{$ordinal}\\s+ano\\b/", $serie)) {
+                return $posicao + 1;
+            }
+        }
+
+        return null;
+    }
+
+    /** Nome do componente da BNCC que corresponde ao componente do i-Educar. */
+    private function componenteDaBncc(?string $nome): ?string
+    {
+        $nome = BnccSkill::normalizar($nome ?? '');
+
+        return match (true) {
+            $nome === '' => null,
+            str_contains($nome, 'portugu') => 'Língua Portuguesa',
+            str_contains($nome, 'ingl') => 'Língua Inglesa',
+            str_contains($nome, 'matem') => 'Matemática',
+            str_contains($nome, 'cienc') => 'Ciências',
+            str_contains($nome, 'hist') => 'História',
+            str_contains($nome, 'geog') => 'Geografia',
+            str_contains($nome, 'fisica') => 'Educação Física',
+            str_contains($nome, 'relig') => 'Ensino Religioso',
+            str_contains($nome, 'arte') => 'Arte',
+            default => null,
+        };
     }
 
     private function dadosDaAnotacao(ClassNote $anotacao, User $user): array
