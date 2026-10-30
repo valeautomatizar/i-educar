@@ -168,3 +168,57 @@ test('só quem escreveu apaga a anotação', function () {
     expect(ClassNote::query()->count())->toBe(0)
         ->and(ClassNote::withTrashed()->count())->toBe(1);
 });
+
+test('sugere habilidades da BNCC do componente e do ano da turma pelas palavras da aula', function () {
+    $this->actingAs($this->user)
+        ->getJson('/api/app/diario/habilidades?' . http_build_query([
+            'turma' => $this->turma->getKey(),
+            'componente' => $this->matematica->getKey(),
+            'busca' => 'Contagem de números naturais até 100',
+        ]))
+        ->assertOk()
+        ->assertJsonPath('etapa', 'EF')
+        ->assertJsonPath('ano', 1)
+        ->assertJsonPath('componente', 'Matemática')
+        ->assertJsonPath('habilidades.0.componente', 'Matemática')
+        ->assertJson(fn ($json) => $json->where('habilidades.0.codigo', fn ($codigo) => str_starts_with($codigo, 'EF01MA'))->etc());
+});
+
+test('sem palavras, lista as habilidades do componente e do ano', function () {
+    $this->actingAs($this->user)
+        ->getJson('/api/app/diario/habilidades?turma=' . $this->turma->getKey() . '&componente=' . $this->portugues->getKey())
+        ->assertOk()
+        ->assertJsonPath('componente', 'Língua Portuguesa')
+        ->assertJsonPath('habilidades.0.codigo', 'EF01LP01');
+});
+
+test('liga habilidades da BNCC à aula, na ordem escolhida, e mostra na última aula', function () {
+    $dados = ['turma' => $this->turma->getKey(), 'componente' => $this->matematica->getKey()];
+
+    $this->actingAs($this->user)->putJson('/api/app/diario/aula', $dados + [
+        'data' => $this->anteontem, 'conteudo' => 'Contagem', 'habilidades' => ['EF01MA02', 'EF01MA01'],
+    ])->assertCreated()
+        ->assertJsonPath('aula.habilidades.0.codigo', 'EF01MA02')
+        ->assertJsonPath('aula.habilidades.1.codigo', 'EF01MA01');
+
+    // Salvar só o texto mantém as habilidades.
+    $this->actingAs($this->user)->putJson('/api/app/diario/aula', $dados + ['data' => $this->anteontem, 'conteudo' => 'Contagem até 20'])
+        ->assertOk()->assertJsonCount(2, 'aula.habilidades');
+
+    $this->actingAs($this->user)
+        ->getJson('/api/app/diario/aula?turma=' . $this->turma->getKey() . '&componente=' . $this->matematica->getKey() . '&data=' . $this->ontem)
+        ->assertOk()
+        ->assertJsonPath('ultima.habilidades.0.codigo', 'EF01MA02');
+
+    $this->actingAs($this->user)->putJson('/api/app/diario/aula', $dados + ['data' => $this->anteontem, 'conteudo' => 'Contagem', 'habilidades' => []])
+        ->assertOk()->assertJsonCount(0, 'aula.habilidades');
+});
+
+test('recusa código da BNCC que não existe', function () {
+    $this->actingAs($this->user)->putJson('/api/app/diario/aula', [
+        'turma' => $this->turma->getKey(), 'componente' => $this->matematica->getKey(), 'data' => $this->ontem,
+        'conteudo' => 'x', 'habilidades' => ['EF99XX99'],
+    ])->assertUnprocessable()->assertJsonValidationErrors('habilidades.0');
+
+    expect(LessonRecord::query()->count())->toBe(0);
+});

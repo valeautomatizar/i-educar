@@ -5,6 +5,7 @@ namespace App\Models;
 use App\User;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Support\Carbon;
 
 /**
@@ -37,6 +38,14 @@ class LessonRecord extends Model
     public function schoolClass(): BelongsTo
     {
         return $this->belongsTo(LegacySchoolClass::class, 'school_class_id');
+    }
+
+    /** Habilidades da BNCC trabalhadas na aula, na ordem escolhida. */
+    public function skills(): BelongsToMany
+    {
+        return $this->belongsToMany(BnccSkill::class, 'lesson_record_bncc_skill', 'lesson_record_id', 'bncc_skill_code')
+            ->withPivot('position')
+            ->orderByPivot('position');
     }
 
     public function user(): BelongsTo
