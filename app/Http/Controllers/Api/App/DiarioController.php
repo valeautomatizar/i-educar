@@ -131,12 +131,15 @@ class DiarioController extends Controller
 
         $etapa = $this->etapaDaBncc($turma);
         $ano = $etapa === 'EF' ? $this->anoDaTurma($turma) : null;
-        $palavras = BnccSkill::palavras($dados['busca'] ?? '');
+        $busca = trim($dados['busca'] ?? '');
 
-        $habilidades = BnccSkill::query()
-            ->sugeridas($palavras, $this->componenteDaBncc($nomeComponente), $ano, $etapa)
-            ->limit(self::SUGESTOES)
-            ->get();
+        // Quem já sabe o código (ex.: EF05MA03) acha a habilidade direto.
+        $habilidades = preg_match('/^E[FI]\d{2}[A-Z0-9]*$/i', $busca)
+            ? BnccSkill::query()->where('code', 'like', strtoupper($busca) . '%')->orderBy('code')->limit(self::SUGESTOES)->get()
+            : BnccSkill::query()
+                ->sugeridas(BnccSkill::palavras($busca), $this->componenteDaBncc($nomeComponente), $ano, $etapa)
+                ->limit(self::SUGESTOES)
+                ->get();
 
         return [
             'etapa' => $etapa,

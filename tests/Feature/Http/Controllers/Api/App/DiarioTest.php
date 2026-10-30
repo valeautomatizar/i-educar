@@ -192,6 +192,14 @@ test('sem palavras, lista as habilidades do componente e do ano', function () {
         ->assertJsonPath('habilidades.0.codigo', 'EF01LP01');
 });
 
+test('acha a habilidade pelo código', function () {
+    $this->actingAs($this->user)
+        ->getJson('/api/app/diario/habilidades?turma=' . $this->turma->getKey() . '&busca=ef05ma0')
+        ->assertOk()
+        ->assertJsonPath('habilidades.0.codigo', 'EF05MA01')
+        ->assertJsonPath('habilidades.1.codigo', 'EF05MA02');
+});
+
 test('liga habilidades da BNCC à aula, na ordem escolhida, e mostra na última aula', function () {
     $dados = ['turma' => $this->turma->getKey(), 'componente' => $this->matematica->getKey()];
 
