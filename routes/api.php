@@ -2,6 +2,8 @@
 
 use App\Http\Controllers\Api\ActiveLookingMessageController;
 use App\Http\Controllers\Api\App\AlunoController;
+use App\Http\Controllers\Api\App\ChamadaController;
+use App\Http\Controllers\Api\App\DiarioController;
 use App\Http\Controllers\Api\App\MatriculaController;
 use App\Http\Controllers\Api\App\NotasController;
 use App\Http\Controllers\Api\App\PainelController;
@@ -104,4 +106,14 @@ Route::group(['middleware' => 'auth:sanctum', 'prefix' => 'app', 'as' => 'api.ap
     Route::get('notas/turmas', [NotasController::class, 'turmas'])->name('notas.turmas');
     Route::get('notas', [NotasController::class, 'index'])->name('notas.index');
     Route::post('notas', [NotasController::class, 'store'])->name('notas.store');
+    Route::get('chamada/turmas', [ChamadaController::class, 'turmas'])->name('chamada.turmas');
+    Route::get('chamada', [ChamadaController::class, 'index'])->name('chamada.index');
+    Route::post('chamada', [ChamadaController::class, 'store'])->name('chamada.store');
+
+    // Diário do professor: o que foi ensinado na aula e anotações.
+    Route::get('diario/aula', [DiarioController::class, 'aula'])->name('diario.aula');
+    Route::put('diario/aula', [DiarioController::class, 'salvarAula'])->name('diario.aula.salvar');
+    Route::get('diario/anotacoes', [DiarioController::class, 'anotacoes'])->name('diario.anotacoes');
+    Route::post('diario/anotacoes', [DiarioController::class, 'salvarAnotacao'])->name('diario.anotacoes.salvar');
+    Route::delete('diario/anotacoes/{anotacao}', [DiarioController::class, 'apagarAnotacao'])->whereNumber('anotacao')->name('diario.anotacoes.apagar');
 });

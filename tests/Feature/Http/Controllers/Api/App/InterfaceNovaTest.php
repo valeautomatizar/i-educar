@@ -2,10 +2,12 @@
 
 use App\Models\LegacyTransferRequest;
 use App\Models\RegistrationStatus;
+use Database\Factories\LegacyDisciplineFactory;
 use Database\Factories\LegacySchoolFactory;
 use Database\Factories\LegacyTransferTypeFactory;
 use Database\Factories\LegacyUserFactory;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
+use Illuminate\Support\Facades\DB;
 use Tests\Request\Support\EnrollmentScenario;
 use Tests\TestCase;
 
@@ -96,4 +98,24 @@ test('usuário de escola não abre a ficha de aluno de outra escola', function (
 
     $this->actingAs($deOutraEscola)->getJson('/api/app/alunos/' . $aluno)->assertForbidden();
     $this->actingAs($deOutraEscola)->getJson('/api/app/alunos?busca=ana')->assertOk()->assertExactJson(['alunos' => []]);
+});
+
+test('a ficha traz a média geral das notas da matrícula atual', function () {
+    $turma = $this->scenario->schoolClass();
+    $matricula = $this->scenario->enrolled('Ana Alves', $turma)->registration;
+    $notaAluno = DB::table('modules.nota_aluno')->insertGetId(['matricula_id' => $matricula->getKey()]);
+
+    foreach (['7.0', '8.5', 'A'] as $i => $media) {
+        DB::table('modules.nota_componente_curricular_media')->insert([
+            'nota_aluno_id' => $notaAluno,
+            'componente_curricular_id' => LegacyDisciplineFactory::new()->create()->getKey(),
+            'media' => 0,
+            'media_arredondada' => $media,
+            'etapa' => '1',
+        ]);
+    }
+
+    $this->actingAs($this->user)->getJson('/api/app/alunos/' . $matricula->ref_cod_aluno)
+        ->assertOk()
+        ->assertJsonPath('media', 7.8);
 });
