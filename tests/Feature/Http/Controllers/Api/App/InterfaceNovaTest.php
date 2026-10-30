@@ -3,9 +3,11 @@
 use App\Models\LegacyTransferRequest;
 use App\Models\RegistrationStatus;
 use Database\Factories\LegacyDisciplineFactory;
+use Database\Factories\LegacyMenuUserTypeFactory;
 use Database\Factories\LegacySchoolFactory;
 use Database\Factories\LegacyTransferTypeFactory;
 use Database\Factories\LegacyUserFactory;
+use Database\Factories\MenuFactory;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Support\Facades\DB;
 use Tests\Request\Support\EnrollmentScenario;
@@ -30,7 +32,22 @@ test('a sessão diz quem está logado e se precisa trocar a senha', function () 
         ->assertJsonPath('usuario.id', $this->user->getKey())
         ->assertJsonPath('usuario.nome', $this->user->name)
         ->assertJsonPath('trocarSenha', true)
-        ->assertJsonPath('linkTrocarSenha', '/alterar-senha');
+        ->assertJsonPath('linkTrocarSenha', '/alterar-senha')
+        ->assertJsonPath('permissoes', ['alunos' => true, 'matricula' => true, 'diario' => true]);
+});
+
+test('a sessão só libera o que o tipo de usuário pode usar, e a ficha segue a mesma regra', function () {
+    $professora = LegacyUserFactory::new()->school()->withSchool($this->scenario->school)->create();
+    LegacyMenuUserTypeFactory::new()->create([
+        'ref_cod_tipo_usuario' => $professora->ref_cod_tipo_usuario,
+        'menu_id' => MenuFactory::new()->create(['process' => 642, 'parent_id' => null]),
+    ]);
+
+    $this->actingAs($professora)->getJson('/api/app/sessao')
+        ->assertOk()
+        ->assertJsonPath('permissoes', ['alunos' => false, 'matricula' => false, 'diario' => true]);
+
+    $this->actingAs($professora)->getJson('/api/app/alunos?busca=ana')->assertForbidden();
 });
 
 test('o painel conta alunos cursando, turmas, vagas e transferências pendentes do ano', function () {
@@ -95,6 +112,10 @@ test('usuário de escola não abre a ficha de aluno de outra escola', function (
     $aluno = $this->scenario->enrolled('Ana Alves', $turma)->registration->ref_cod_aluno;
 
     $deOutraEscola = LegacyUserFactory::new()->school()->withSchool(LegacySchoolFactory::new()->create())->create();
+    LegacyMenuUserTypeFactory::new()->create([
+        'ref_cod_tipo_usuario' => $deOutraEscola->ref_cod_tipo_usuario,
+        'menu_id' => MenuFactory::new()->create(['process' => 680, 'parent_id' => null]),
+    ]);
 
     $this->actingAs($deOutraEscola)->getJson('/api/app/alunos/' . $aluno)->assertForbidden();
     $this->actingAs($deOutraEscola)->getJson('/api/app/alunos?busca=ana')->assertOk()->assertExactJson(['alunos' => []]);

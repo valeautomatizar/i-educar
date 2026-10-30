@@ -14,6 +14,7 @@ use App\User;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Gate;
 
 /**
  * Dados da tela inicial da interface nova.
@@ -57,7 +58,8 @@ class PainelController extends Controller
 
         $pendencias = [];
 
-        if ($transferencias > 0) {
+        // Transferência é trabalho da secretaria: só aparece para quem pode matricular.
+        if ($transferencias > 0 && Gate::forUser($user)->allows('modify', 578)) {
             $pendencias[] = [
                 'id' => 'transferencias',
                 'tipo' => 'transferencia',
