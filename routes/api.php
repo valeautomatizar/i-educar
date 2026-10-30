@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\ActiveLookingMessageController;
 use App\Http\Controllers\Api\App\AlunoController;
+use App\Http\Controllers\Api\App\ChamadaController;
 use App\Http\Controllers\Api\App\MatriculaController;
 use App\Http\Controllers\Api\App\NotasController;
 use App\Http\Controllers\Api\App\PainelController;
@@ -104,4 +105,7 @@ Route::group(['middleware' => 'auth:sanctum', 'prefix' => 'app', 'as' => 'api.ap
     Route::get('notas/turmas', [NotasController::class, 'turmas'])->name('notas.turmas');
     Route::get('notas', [NotasController::class, 'index'])->name('notas.index');
     Route::post('notas', [NotasController::class, 'store'])->name('notas.store');
+    Route::get('chamada/turmas', [ChamadaController::class, 'turmas'])->name('chamada.turmas');
+    Route::get('chamada', [ChamadaController::class, 'index'])->name('chamada.index');
+    Route::post('chamada', [ChamadaController::class, 'store'])->name('chamada.store');
 });

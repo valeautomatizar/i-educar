@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\App;
 
 use App\Http\Controllers\Controller;
+use App\Models\DailyAttendance;
 use App\Models\LegacyRegistration;
 use App\Models\LegacyStudent;
 use Illuminate\Http\Request;
@@ -84,8 +85,8 @@ class AlunoController extends Controller
             'matricula' => $atual ? (string) $atual->cod_matricula : null,
             'situacao' => $atual ? SituacaoMatricula::grupo((int) $atual->aprovado) : null,
             'situacaoTexto' => $atual ? SituacaoMatricula::texto((int) $atual->aprovado) : null,
-            'presenca' => null,
-            'faltas' => null,
+            'presenca' => $this->presenca($atual),
+            'faltas' => $this->faltasNoAno($atual),
             'media' => $this->mediaGeral($atual),
             'responsavel' => $student->getGuardianName(),
             'transporte' => null,
@@ -117,6 +118,50 @@ class AlunoController extends Controller
             ->avg(DB::raw('media.media_arredondada::numeric'));
 
         return $media === null ? null : round((float) $media, 1);
+    }
+
+    /**
+     * Porcentagem de presença nas chamadas diárias da matrícula atual, ou
+     * null se a escola ainda não faz a chamada pela interface nova.
+     */
+    private function presenca(?LegacyRegistration $matricula): ?int
+    {
+        if (!$matricula) {
+            return null;
+        }
+
+        $chamadas = DailyAttendance::query()
+            ->where('registration_id', $matricula->getKey())
+            ->selectRaw('count(*) as total, count(*) filter (where present) as presentes')
+            ->first();
+
+        return $chamadas && $chamadas->total > 0 ? (int) round(100 * $chamadas->presentes / $chamadas->total) : null;
+    }
+
+    /**
+     * Faltas lançadas no boletim da matrícula atual, somando as etapas (no
+     * geral ou por componente, conforme a regra), ou null sem lançamento.
+     */
+    private function faltasNoAno(?LegacyRegistration $matricula): ?int
+    {
+        if (!$matricula) {
+            return null;
+        }
+
+        $faltaAluno = DB::table('modules.falta_aluno')->where('matricula_id', $matricula->getKey())->pluck('id');
+
+        if ($faltaAluno->isEmpty()) {
+            return null;
+        }
+
+        $geral = DB::table('modules.falta_geral')->whereIn('falta_aluno_id', $faltaAluno);
+        $componente = DB::table('modules.falta_componente_curricular')->whereIn('falta_aluno_id', $faltaAluno);
+
+        if (!$geral->exists() && !$componente->exists()) {
+            return null;
+        }
+
+        return (int) $geral->sum('quantidade') + (int) $componente->sum('quantidade');
     }
 
     private function detalheBusca(LegacyStudent $aluno): string
