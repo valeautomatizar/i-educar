@@ -4,6 +4,8 @@ namespace App\Http\Controllers\Api\App;
 
 use App\Models\LegacyDiscipline;
 use App\Models\LegacyEnrollment;
+use App\Models\LegacyEvaluationRule;
+use App\Models\LegacyGrade;
 use App\Models\LegacySchoolAcademicYear;
 use App\Models\LegacySchoolClass;
 use App\Models\LegacySchoolClassTeacher;
@@ -175,9 +177,122 @@ trait DiarioDaTurma
             ->where('ref_cod_turma', $turma->getKey())
             ->where(fn ($q) => $q->where('ativo', 1)->orWhere('transferido', true))
             ->whereHas('registration', fn ($q) => $q->where('ativo', 1)->whereHas('student', fn ($s) => $s->where('ativo', 1)))
-            ->with('registration.student.person')
+            ->with(['registration.student.person', 'registration.grade'])
             ->get()
             ->sortBy(fn (LegacyEnrollment $e) => [$e->sequencial_fechamento, $e->registration->student->person->name])
             ->values();
+    }
+
+    protected function multisseriada(LegacySchoolClass $turma): bool
+    {
+        return (int) $turma->multiseriada === 1;
+    }
+
+    /**
+     * Séries da turma, da primeira à última: só a da turma ou, na turma
+     * multisseriada, todas as ligadas a ela.
+     *
+     * @return Collection<int, array{id: int, nome: string}>
+     */
+    protected function seriesDaTurma(LegacySchoolClass $turma): Collection
+    {
+        $ids = collect([(int) $turma->ref_ref_cod_serie]);
+
+        if ($this->multisseriada($turma)) {
+            $ids = $ids->merge($turma->multigrades()->pluck('serie_id')->map(fn ($id) => (int) $id));
+        }
+
+        return LegacyGrade::query()
+            ->whereKey($ids->filter()->unique()->values()->all())
+            ->orderBy('etapa_curso')
+            ->orderBy('nm_serie')
+            ->get()
+            ->map(fn (LegacyGrade $serie) => ['id' => (int) $serie->getKey(), 'nome' => (string) $serie->name])
+            ->values();
+    }
+
+    /**
+     * Turma como aparece na lista de turmas: na multisseriada, o campo
+     * série junta as séries ("1º ano e 2º ano").
+     */
+    protected function turmaNaLista(LegacySchoolClass $turma): array
+    {
+        $multisseriada = $this->multisseriada($turma);
+
+        return [
+            'id' => $turma->cod_turma,
+            'nome' => $turma->nm_turma,
+            'serie' => $multisseriada ? $this->juntarNomes($this->seriesDaTurma($turma)->pluck('nome')) : $turma->grade?->name,
+            'multisseriada' => $multisseriada,
+            'escola' => $turma->school?->name,
+            'turno' => $turma->period?->name,
+        ];
+    }
+
+    /**
+     * Na turma multisseriada, as séries que têm o componente. Null quando a
+     * turma tem uma série só ou não há componente.
+     *
+     * @return Collection<int, int>|null
+     */
+    protected function seriesComComponente(LegacySchoolClass $turma, ?int $componenteId): ?Collection
+    {
+        if (!$this->multisseriada($turma) || $componenteId === null) {
+            return null;
+        }
+
+        return app(DiarioControllerService::class)->getComponentesTurma($turma->getKey())
+            ->filter(fn ($componente) => (int) $componente->id === $componenteId)
+            ->pluck('cod_serie')
+            ->map(fn ($id) => (int) $id)
+            ->unique()
+            ->values();
+    }
+
+    /**
+     * Separa os alunos das séries que não têm o componente (só acontece na
+     * turma multisseriada) e explica por que eles não aparecem.
+     *
+     * @return array{0: Collection<int, LegacyEnrollment>, 1: string|null}
+     */
+    protected function soQuemTemOComponente(LegacySchoolClass $turma, Collection $enturmacoes, ?int $componenteId, ?string $nomeComponente): array
+    {
+        $series = $this->seriesComComponente($turma, $componenteId);
+
+        if ($series === null) {
+            return [$enturmacoes, null];
+        }
+
+        [$ficam, $saem] = $enturmacoes->partition(fn (LegacyEnrollment $e) => $series->contains((int) $e->registration->ref_ref_cod_serie));
+
+        if ($saem->isEmpty()) {
+            return [$ficam->values(), null];
+        }
+
+        $nomes = $this->juntarNomes($saem->map(fn (LegacyEnrollment $e) => $e->registration->grade?->name)->filter()->unique()->values());
+        $componente = $nomeComponente ?: 'este componente';
+
+        return [$ficam->values(), "Os alunos do {$nomes} não aparecem aqui porque {$componente} não faz parte da série deles."];
+    }
+
+    /**
+     * Regra de avaliação da série (cada série da multisseriada pode ter a
+     * sua), ou null se a série não tem regra no ano.
+     */
+    protected function regraDaSerie(LegacySchoolClass $turma, int $serieId): ?LegacyEvaluationRule
+    {
+        try {
+            return $turma->getEvaluationRule($serieId);
+        } catch (Throwable) {
+            return null;
+        }
+    }
+
+    /** "1º ano", "1º ano e 2º ano", "1º ano, 2º ano e 3º ano". */
+    protected function juntarNomes(Collection $nomes): ?string
+    {
+        $nomes = $nomes->filter()->values();
+
+        return $nomes->isEmpty() ? null : $nomes->join(', ', ' e ');
     }
 }

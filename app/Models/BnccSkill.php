@@ -57,12 +57,17 @@ class BnccSkill extends Model
 
     /**
      * Ordena pela relevância das palavras (as que não batem nenhuma ficam de
-     * fora), dando preferência ao componente e ao ano da turma.
+     * fora), dando preferência ao componente e aos anos da turma (a turma
+     * multisseriada tem mais de um).
+     *
+     * @param  array<int, int>|int|null  $anos
      */
-    public function scopeSugeridas(Builder $query, array $palavras, ?string $componente, ?int $ano, ?string $etapa): Builder
+    public function scopeSugeridas(Builder $query, array $palavras, ?string $componente, array|int|null $anos, ?string $etapa): Builder
     {
         $consulta = implode(' | ', $palavras);
         $componenteNormalizado = $componente ? self::normalizar($componente) : null;
+        $anos = array_values(array_unique(array_map('intval', (array) $anos)));
+        $anosJson = $anos ? json_encode($anos) : null;
 
         $query->select('bncc_skills.*')
             ->when($etapa, fn ($q) => $q->where('stage', $etapa));
@@ -77,8 +82,8 @@ class BnccSkill extends Model
         return $query
             ->orderByRaw(
                 '(CASE WHEN ?::text IS NOT NULL AND lower(unaccent(component)) = ?::text THEN 1 ELSE 0 END)'
-                . ' + (CASE WHEN ?::int IS NOT NULL AND years @> to_jsonb(?::int) THEN 0.5 ELSE 0 END) DESC',
-                [$componenteNormalizado, $componenteNormalizado, $ano, $ano]
+                . ' + (CASE WHEN ?::jsonb IS NOT NULL AND EXISTS (SELECT 1 FROM jsonb_array_elements(?::jsonb) AS ano WHERE years @> jsonb_build_array(ano)) THEN 0.5 ELSE 0 END) DESC',
+                [$componenteNormalizado, $componenteNormalizado, $anosJson, $anosJson]
             )
             ->orderByDesc('relevancia')
             ->orderBy('code');

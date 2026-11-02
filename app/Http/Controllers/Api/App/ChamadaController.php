@@ -57,12 +57,7 @@ class ChamadaController extends Controller
 
         return [
             'ano' => $ano,
-            'turmas' => $turmas->map(fn (LegacySchoolClass $turma) => [
-                'id' => $turma->cod_turma,
-                'nome' => $turma->nm_turma,
-                'serie' => $turma->grade?->name,
-                'escola' => $turma->school?->name,
-                'turno' => $turma->period?->name,
+            'turmas' => $turmas->map(fn (LegacySchoolClass $turma) => $this->turmaNaLista($turma) + [
                 'chamadaDeHoje' => $feitasHoje->contains($turma->cod_turma),
             ])->values(),
         ];
@@ -87,7 +82,7 @@ class ChamadaController extends Controller
         $etapa = $this->etapaDoDia($etapas, $dia);
         $motivo = $this->motivoParaNaoLancar($user, $turma, $dia, $etapa);
 
-        $enturmacoes = $this->alunosNoDia($turma, $dia);
+        [$enturmacoes, $aviso] = $this->alunosDaChamada($turma, $dia, $componentes, $componenteId);
         $matriculas = $enturmacoes->pluck('ref_cod_matricula');
 
         $doDia = DailyAttendance::query()
@@ -108,6 +103,7 @@ class ChamadaController extends Controller
 
         return [
             'turma' => ['id' => $turma->cod_turma, 'nome' => $turma->nm_turma, 'turno' => $turma->period?->name],
+            'multisseriada' => $this->multisseriada($turma),
             'data' => $dia,
             'porComponente' => $porComponente,
             'componentes' => $componentes->values(),
@@ -116,11 +112,13 @@ class ChamadaController extends Controller
             'feita' => $doDia->isNotEmpty(),
             'podeLancar' => $motivo === null,
             'motivo' => $motivo,
+            'aviso' => $aviso,
             'alunos' => $enturmacoes->values()->map(fn (LegacyEnrollment $e, int $i) => [
                 'alunoId' => (int) $e->registration->ref_cod_aluno,
                 'matriculaId' => (int) $e->ref_cod_matricula,
                 'numero' => $i + 1,
                 'nome' => $e->registration->student->person->name,
+                'serie' => $e->registration->grade?->name,
                 'presente' => $doDia->has($e->ref_cod_matricula) ? (bool) $doDia[$e->ref_cod_matricula] : null,
                 'faltasNaEtapa' => (int) ($faltasNaEtapa[$e->ref_cod_matricula] ?? 0),
             ])->values(),
@@ -145,7 +143,7 @@ class ChamadaController extends Controller
 
         $turma = $this->turmaPermitida($user, (int) $dados['turma']);
         $dia = $dados['data'];
-        [$porComponente, , $componenteId] = $this->componenteDaChamada($user, $turma, $dados['componente'] ?? null);
+        [$porComponente, $componentes, $componenteId] = $this->componenteDaChamada($user, $turma, $dados['componente'] ?? null);
 
         $etapa = $this->etapaDoDia($this->etapas($turma), $dia);
 
@@ -153,7 +151,7 @@ class ChamadaController extends Controller
             return response()->json(['message' => $motivo], 422);
         }
 
-        $enturmacoes = $this->alunosNoDia($turma, $dia);
+        [$enturmacoes] = $this->alunosDaChamada($turma, $dia, $componentes, $componenteId);
         $faltaram = collect($dados['faltaram'])->map(fn ($id) => (int) $id);
         $daTurma = $enturmacoes->map(fn (LegacyEnrollment $e) => (int) $e->registration->ref_cod_aluno);
 
@@ -231,6 +229,17 @@ class ChamadaController extends Controller
             ->filter(fn (LegacyEnrollment $e) => (!$e->data_enturmacao || $e->data_enturmacao->toDateString() <= $dia)
                 && ($e->ativo || ($e->data_exclusao && $e->data_exclusao->toDateString() > $dia)))
             ->values();
+    }
+
+    /**
+     * Alunos da chamada no dia. Na turma multisseriada com chamada por
+     * componente, só os das séries que têm o componente.
+     *
+     * @return array{0: Collection<int, LegacyEnrollment>, 1: string|null}
+     */
+    private function alunosDaChamada(LegacySchoolClass $turma, string $dia, Collection $componentes, ?int $componenteId): array
+    {
+        return $this->soQuemTemOComponente($turma, $this->alunosNoDia($turma, $dia), $componenteId, $componentes->firstWhere('id', $componenteId)['nome'] ?? null);
     }
 
     private function motivoParaNaoLancar(User $user, LegacySchoolClass $turma, string $dia, ?int $etapa): ?string

@@ -73,17 +73,18 @@ class NovaMatriculaService
     /**
      * @throws MatriculaRecusada
      */
-    public function matricular(LegacyStudent $aluno, LegacySchoolClass $turma, Carbon $data, bool $confirmouFaixaEtaria = false): LegacyRegistration
+    public function matricular(LegacyStudent $aluno, LegacySchoolClass $turma, Carbon $data, bool $confirmouFaixaEtaria = false, ?int $serieEscolhida = null): LegacyRegistration
     {
         $turma->loadMissing(['course', 'school.institution']);
         $instituicao = $turma->school->institution;
         $escola = (int) $turma->ref_ref_cod_escola;
-        $curso = (int) $turma->ref_cod_curso;
-        $serie = (int) $turma->ref_ref_cod_serie;
+        $serie = $this->serieNaTurma($turma, $serieEscolhida);
+        // Na multisseriada, a série pode ser de outro curso que o da turma.
+        $curso = $serie === (int) $turma->ref_ref_cod_serie ? (int) $turma->ref_cod_curso : (int) LegacyGrade::query()->whereKey($serie)->value('ref_cod_curso');
         $ano = (int) $turma->ano;
         $alunoId = (int) $aluno->getKey();
 
-        if ($turma->course?->bloquear_novas_matriculas) {
+        if (LegacyCourse::query()->whereKey($curso)->value('bloquear_novas_matriculas')) {
             $this->recusar('Não foi possível realizar a matrícula, o curso selecionado está configurado para não permitir a realização de novas matrículas.');
         }
 
@@ -162,6 +163,46 @@ class NovaMatriculaService
     }
 
     /**
+     * Séries em que dá para matricular na turma: a da turma ou, na
+     * multisseriada, cada uma das séries ligadas a ela.
+     *
+     * @return array<int, int>
+     */
+    public static function seriesDaTurma(LegacySchoolClass $turma): array
+    {
+        $series = [(int) $turma->ref_ref_cod_serie];
+
+        if ((int) $turma->multiseriada === 1) {
+            $series = array_merge($series, $turma->multigrades()->pluck('serie_id')->map(fn ($id) => (int) $id)->all());
+        }
+
+        return array_values(array_unique(array_filter($series)));
+    }
+
+    /**
+     * A série da matrícula. Na turma multisseriada é preciso dizer em qual
+     * das séries dela o aluno vai estudar.
+     *
+     * @throws MatriculaRecusada
+     */
+    private function serieNaTurma(LegacySchoolClass $turma, ?int $escolhida): int
+    {
+        if ((int) $turma->multiseriada !== 1) {
+            return (int) $turma->ref_ref_cod_serie;
+        }
+
+        if ($escolhida === null) {
+            $this->recusar('Esta turma é multisseriada. Escolha em qual série o aluno vai estudar.');
+        }
+
+        if (!in_array($escolhida, self::seriesDaTurma($turma), true)) {
+            $this->recusar('A série escolhida não faz parte desta turma.');
+        }
+
+        return $escolhida;
+    }
+
+    /**
      * Matrícula nova de quem foi transferido na mesma série e ano: copia os
      * dados da matrícula antiga, como a tela antiga faz.
      */
@@ -213,7 +254,7 @@ class NovaMatriculaService
         }
 
         $turmasDoTurno = LegacySchoolClass::query()
-            ->where('ref_ref_cod_serie', $serie)
+            ->where(fn ($q) => $q->where('ref_ref_cod_serie', $serie)->orWhereHas('multigrades', fn ($m) => $m->where('serie_id', $serie)))
             ->where('ref_ref_cod_escola', $escola)
             ->where('turma_turno_id', $turma->turma_turno_id)
             ->where('ano', $ano)
