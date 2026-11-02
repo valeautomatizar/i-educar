@@ -129,21 +129,24 @@ class DiarioController extends Controller
         $componenteId = $this->componenteEscolhido($componentes, $dados['componente'] ?? null);
         $nomeComponente = $componentes->firstWhere('id', $componenteId)['nome'] ?? null;
 
-        $etapa = $this->etapaDaBncc($turma);
-        $ano = $etapa === 'EF' ? $this->anoDaTurma($turma) : null;
+        // Na turma multisseriada valem os anos de todas as séries que têm o componente.
+        $series = $this->seriesDaBncc($turma, $componenteId);
+        $etapa = $this->etapaDaBncc($turma, $series);
+        $anos = $etapa === 'EF' ? $this->anosDasSeries($series) : [];
         $busca = trim($dados['busca'] ?? '');
 
         // Quem já sabe o código (ex.: EF05MA03) acha a habilidade direto.
         $habilidades = preg_match('/^E[FI]\d{2}[A-Z0-9]*$/i', $busca)
             ? BnccSkill::query()->where('code', 'like', strtoupper($busca) . '%')->orderBy('code')->limit(self::SUGESTOES)->get()
             : BnccSkill::query()
-                ->sugeridas(BnccSkill::palavras($busca), $this->componenteDaBncc($nomeComponente), $ano, $etapa)
+                ->sugeridas(BnccSkill::palavras($busca), $this->componenteDaBncc($nomeComponente), $anos, $etapa)
                 ->limit(self::SUGESTOES)
                 ->get();
 
         return [
             'etapa' => $etapa,
-            'ano' => $ano,
+            'ano' => $anos[0] ?? null,
+            'anos' => $anos,
             'componente' => $this->componenteDaBncc($nomeComponente),
             'habilidades' => $habilidades->map(fn (BnccSkill $h) => $this->dadosDaHabilidade($h))->values(),
         ];
@@ -260,7 +263,7 @@ class DiarioController extends Controller
     }
 
     /**
-     * @return array<int, array{id: int, nome: string}>
+     * @return array<int, array{id: int, nome: string, serie: string|null}>
      */
     private function alunosDaTurma(LegacySchoolClass $turma): array
     {
@@ -268,11 +271,12 @@ class DiarioController extends Controller
             ->where('ref_cod_turma', $turma->getKey())
             ->where('ativo', 1)
             ->whereHas('registration', fn ($q) => $q->where('ativo', 1)->whereHas('student', fn ($s) => $s->where('ativo', 1)))
-            ->with('registration.student.person')
+            ->with(['registration.student.person', 'registration.grade'])
             ->get()
             ->map(fn (LegacyEnrollment $e) => [
                 'id' => (int) $e->registration->ref_cod_aluno,
                 'nome' => (string) $e->registration->student->person->name,
+                'serie' => $e->registration->grade?->name,
             ])
             ->sortBy('nome')
             ->values()
@@ -291,6 +295,7 @@ class DiarioController extends Controller
             'nome' => $turma->nm_turma,
             'escola' => $turma->school?->name,
             'turno' => $turma->period?->name,
+            'multisseriada' => $this->multisseriada($turma),
         ];
     }
 
@@ -314,22 +319,54 @@ class DiarioController extends Controller
         ];
     }
 
-    /** EI para turma de educação infantil, EF quando dá para saber o ano, ou null. */
-    private function etapaDaBncc(LegacySchoolClass $turma): ?string
+    /**
+     * Nomes das séries que contam para a BNCC: a da turma ou, na
+     * multisseriada, as que têm o componente (todas, se nenhuma tiver).
+     *
+     * @return array<int, string>
+     */
+    private function seriesDaBncc(LegacySchoolClass $turma, ?int $componenteId): array
     {
-        $nomes = BnccSkill::normalizar(($turma->course?->name ?? '') . ' ' . ($turma->grade?->name ?? ''));
+        if (!$this->multisseriada($turma)) {
+            return [$turma->grade?->name ?? ''];
+        }
+
+        $series = $this->seriesDaTurma($turma);
+        $comComponente = $this->seriesComComponente($turma, $componenteId);
+        $escolhidas = $comComponente ? $series->whereIn('id', $comComponente->all()) : collect();
+
+        return ($escolhidas->isNotEmpty() ? $escolhidas : $series)->pluck('nome')->all();
+    }
+
+    /** EI para turma de educação infantil, EF quando dá para saber o ano, ou null. */
+    private function etapaDaBncc(LegacySchoolClass $turma, array $series): ?string
+    {
+        $nomes = BnccSkill::normalizar(($turma->course?->name ?? '') . ' ' . implode(' ', $series));
 
         if (preg_match('/infantil|creche|pre[ -]?escola|\bpre\b|maternal|bercario/', $nomes)) {
             return 'EI';
         }
 
-        return $this->anoDaTurma($turma) ? 'EF' : null;
+        return $this->anosDasSeries($series) ? 'EF' : null;
+    }
+
+    /**
+     * Anos do Ensino Fundamental das séries, em ordem.
+     *
+     * @return array<int, int>
+     */
+    private function anosDasSeries(array $series): array
+    {
+        $anos = array_filter(array_map(fn (string $serie) => $this->anoDaSerie($serie), $series));
+        sort($anos);
+
+        return array_values(array_unique($anos));
     }
 
     /** Ano do Ensino Fundamental pelo nome da série ("5º ano", "5 ano", "Quinto ano"). */
-    private function anoDaTurma(LegacySchoolClass $turma): ?int
+    private function anoDaSerie(string $nome): ?int
     {
-        $serie = BnccSkill::normalizar($turma->grade?->name ?? '');
+        $serie = BnccSkill::normalizar($nome);
 
         if (preg_match('/\b([1-9])\s*(o|a)?\s*ano\b/', $serie, $achado)) {
             return (int) $achado[1];

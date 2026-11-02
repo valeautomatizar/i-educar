@@ -53,23 +53,41 @@ class MatriculaController extends Controller
         $turmas = LegacySchoolClass::query()
             ->where('turma.ativo', 1)
             ->where('turma.ano', $ano)
-            ->when($serie !== null, fn ($q) => $q->where('turma.ref_ref_cod_serie', $serie))
+            // A série pode ser a da turma ou uma das séries da turma multisseriada.
+            ->when($serie !== null, fn ($q) => $q->where(fn ($q) => $q->where('turma.ref_ref_cod_serie', $serie)->orWhereHas('multigrades', fn ($m) => $m->where('serie_id', $serie))))
             ->when($escolas !== null, fn ($q) => $q->whereIn('turma.ref_ref_cod_escola', $escolas))
             ->with(['period', 'grade', 'school.organization', 'school.person'])
             ->withCount(['enrollments as enturmados' => fn ($q) => $q->where('ativo', 1)->whereHas('registration', fn ($r) => $r->where('dependencia', false))])
             ->orderBy('turma.nm_turma')
             ->limit(60)
             ->get()
-            ->map(fn (LegacySchoolClass $turma) => [
+            ->filter(fn (LegacySchoolClass $turma) => (int) $turma->max_aluno > (int) $turma->enturmados);
+
+        $nomes = LegacyGrade::query()
+            ->whereKey($turmas->flatMap(fn (LegacySchoolClass $turma) => NovaMatriculaService::seriesDaTurma($turma))->unique()->values()->all())
+            ->orderBy('etapa_curso')
+            ->orderBy('nm_serie')
+            ->get()
+            ->mapWithKeys(fn (LegacyGrade $s) => [(int) $s->getKey() => (string) $s->name]);
+
+        // Turma multisseriada sem série definida vira uma opção por série.
+        $turmas = $turmas->flatMap(function (LegacySchoolClass $turma) use ($serie, $nomes) {
+            $multisseriada = (int) $turma->multiseriada === 1;
+            $series = NovaMatriculaService::seriesDaTurma($turma);
+            $opcoes = $serie !== null ? [$serie] : ($multisseriada ? $nomes->only($series)->keys()->all() : [(int) $turma->ref_ref_cod_serie]);
+
+            return collect($opcoes)->map(fn (int $serieId) => [
                 'id' => $turma->cod_turma,
                 'nome' => $turma->nm_turma,
-                'serie' => $turma->grade?->name,
+                'serieId' => $serieId,
+                'serie' => $nomes[$serieId] ?? $turma->grade?->name,
+                'multisseriada' => $multisseriada,
+                'seriesDaTurma' => $multisseriada ? $nomes->only($series)->values()->join(', ', ' e ') : null,
                 'escola' => $turma->school?->name,
                 'turno' => $turma->period?->name ?? '',
                 'vagas' => max(0, (int) $turma->max_aluno - (int) $turma->enturmados),
-            ])
-            ->filter(fn ($turma) => $turma['vagas'] > 0)
-            ->values();
+            ]);
+        })->values();
 
         return [
             'serie' => $serie ? LegacyGrade::query()->whereKey($serie)->value('nm_serie') : null,
@@ -86,6 +104,7 @@ class MatriculaController extends Controller
         $dados = $request->validate([
             'aluno' => ['required', 'integer'],
             'turma' => ['required', 'integer'],
+            'serie' => ['nullable', 'integer'],
             'data' => ['required', 'string'],
             'confirmarFaixaEtaria' => ['sometimes', 'boolean'],
         ], [
@@ -112,7 +131,7 @@ class MatriculaController extends Controller
         }
 
         try {
-            $matricula = (new NovaMatriculaService($user))->matricular($aluno, $turma, $data, (bool) ($dados['confirmarFaixaEtaria'] ?? false));
+            $matricula = (new NovaMatriculaService($user))->matricular($aluno, $turma, $data, (bool) ($dados['confirmarFaixaEtaria'] ?? false), isset($dados['serie']) ? (int) $dados['serie'] : null);
         } catch (MatriculaRecusada $recusa) {
             return response()->json(['message' => $recusa->getMessage(), 'precisaConfirmar' => $recusa->precisaConfirmar], 422);
         }
@@ -121,6 +140,7 @@ class MatriculaController extends Controller
             'matricula' => (string) $matricula->cod_matricula,
             'alunoId' => (int) $aluno->cod_aluno,
             'turma' => $turma->nm_turma,
+            'serie' => $matricula->grade?->name,
         ], 201);
     }
 

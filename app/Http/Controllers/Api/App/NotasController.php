@@ -8,6 +8,7 @@ use App\Http\Requests\PostNotasRequest;
 use App\Models\LegacyDisciplineScore;
 use App\Models\LegacyDisciplineScoreAverage;
 use App\Models\LegacyEnrollment;
+use App\Models\LegacyEvaluationRule;
 use App\Models\LegacySchoolClass;
 use Illuminate\Http\Request;
 use RegraAvaliacao_Model_Nota_TipoValor;
@@ -43,13 +44,7 @@ class NotasController extends Controller
                 ->orderBy('nm_turma')
                 ->limit(100)
                 ->get()
-                ->map(fn (LegacySchoolClass $turma) => [
-                    'id' => $turma->cod_turma,
-                    'nome' => $turma->nm_turma,
-                    'serie' => $turma->grade?->name,
-                    'escola' => $turma->school?->name,
-                    'turno' => $turma->period?->name,
-                ])
+                ->map(fn (LegacySchoolClass $turma) => $this->turmaNaLista($turma))
                 ->values(),
         ];
     }
@@ -80,10 +75,18 @@ class NotasController extends Controller
 
         $etapas = $this->etapas($turma);
         $etapa = (int) ($dados['etapa'] ?? $this->etapaAtual($etapas));
-        $regra = $turma->getEvaluationRule();
         $bloqueio = $this->motivoDoBloqueio($user, $turma, $etapa);
 
-        $enturmacoes = $this->enturmacoes($turma);
+        // Na turma multisseriada, só aparecem os alunos das séries que têm o
+        // componente, e cada série pode ter a sua regra de avaliação.
+        [$enturmacoes, $aviso] = $this->soQuemTemOComponente($turma, $this->enturmacoes($turma), $componenteId, $componentes->firstWhere('id', $componenteId)['nome'] ?? null);
+        $multisseriada = $this->multisseriada($turma);
+        $regraDaTurma = $turma->getEvaluationRule();
+        $regras = $multisseriada
+            ? $enturmacoes->map(fn (LegacyEnrollment $e) => (int) $e->registration->ref_ref_cod_serie)->unique()
+                ->mapWithKeys(fn (int $serie) => [$serie => $this->regraDaSerie($turma, $serie) ?? $regraDaTurma])
+            : collect();
+        $regra = $regras->first(fn ($r) => $this->numerica($r)) ?? $regraDaTurma;
 
         $matriculas = $enturmacoes->pluck('ref_cod_matricula');
 
@@ -102,26 +105,52 @@ class NotasController extends Controller
 
         return [
             'turma' => ['id' => $turma->cod_turma, 'nome' => $turma->nm_turma, 'turno' => $turma->period?->name],
+            'multisseriada' => $multisseriada,
             'componentes' => $componentes->values(),
             'componente' => $componenteId,
             'etapas' => $etapas,
             'etapa' => $etapa,
             // Notas conceituais ainda são lançadas na tela antiga.
-            'tipoNota' => (int) $regra->tipo_nota === RegraAvaliacao_Model_Nota_TipoValor::NUMERICA ? 'numerica' : 'outra',
+            'tipoNota' => $this->numerica($regra) ? 'numerica' : 'outra',
+            ...$this->limites($regra),
+            'podeLancar' => $bloqueio === null,
+            'motivo' => $bloqueio,
+            'aviso' => $aviso,
+            'alunos' => $enturmacoes->map(function (LegacyEnrollment $e) use ($notas, $medias, $regras, $regra) {
+                $regraDoAluno = $regras->get((int) $e->registration->ref_ref_cod_serie, $regra);
+                $diferente = (int) $regraDoAluno->getKey() !== (int) $regra->getKey();
+
+                return [
+                    'alunoId' => (int) $e->registration->ref_cod_aluno,
+                    'matriculaId' => (int) $e->ref_cod_matricula,
+                    'nome' => $e->registration->student->person->name,
+                    'serie' => $e->registration->grade?->name,
+                    'nota' => is_numeric($notas[$e->ref_cod_matricula] ?? null) ? (float) $notas[$e->ref_cod_matricula] : null,
+                    'media' => is_numeric($medias[$e->ref_cod_matricula] ?? null) ? (float) $medias[$e->ref_cod_matricula] : null,
+                    'saiu' => $e->ativo ? null : 'Transferido',
+                    // Só quando a série do aluno usa outra regra que a da tela.
+                    'limites' => $diferente && $this->numerica($regraDoAluno) ? $this->limites($regraDoAluno) : null,
+                    'bloqueio' => $diferente && !$this->numerica($regraDoAluno) ? 'A série deste aluno usa nota por conceito. Lance pela tela antiga.' : null,
+                ];
+            })->values(),
+        ];
+    }
+
+    private function numerica(?LegacyEvaluationRule $regra): bool
+    {
+        return $regra !== null && (int) $regra->tipo_nota === RegraAvaliacao_Model_Nota_TipoValor::NUMERICA;
+    }
+
+    /**
+     * @return array{notaMinima: float, notaMaxima: float, mediaAprovacao: float, casasDecimais: int}
+     */
+    private function limites(LegacyEvaluationRule $regra): array
+    {
+        return [
             'notaMinima' => (float) $regra->nota_minima_geral,
             'notaMaxima' => (float) $regra->nota_maxima_geral,
             'mediaAprovacao' => (float) $regra->media,
             'casasDecimais' => (int) $regra->qtd_casas_decimais,
-            'podeLancar' => $bloqueio === null,
-            'motivo' => $bloqueio,
-            'alunos' => $enturmacoes->map(fn (LegacyEnrollment $e) => [
-                'alunoId' => (int) $e->registration->ref_cod_aluno,
-                'matriculaId' => (int) $e->ref_cod_matricula,
-                'nome' => $e->registration->student->person->name,
-                'nota' => is_numeric($notas[$e->ref_cod_matricula] ?? null) ? (float) $notas[$e->ref_cod_matricula] : null,
-                'media' => is_numeric($medias[$e->ref_cod_matricula] ?? null) ? (float) $medias[$e->ref_cod_matricula] : null,
-                'saiu' => $e->ativo ? null : 'Transferido',
-            ])->values(),
         ];
     }
 
