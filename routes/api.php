@@ -106,6 +106,7 @@ Route::group(['middleware' => 'auth:sanctum', 'prefix' => 'app', 'as' => 'api.ap
     Route::get('notas/turmas', [NotasController::class, 'turmas'])->name('notas.turmas');
     Route::get('notas', [NotasController::class, 'index'])->name('notas.index');
     Route::post('notas', [NotasController::class, 'store'])->name('notas.store');
+    Route::post('notas/parecer', [NotasController::class, 'parecer'])->name('notas.parecer');
     Route::get('chamada/turmas', [ChamadaController::class, 'turmas'])->name('chamada.turmas');
     Route::get('chamada', [ChamadaController::class, 'index'])->name('chamada.index');
     Route::post('chamada', [ChamadaController::class, 'store'])->name('chamada.store');

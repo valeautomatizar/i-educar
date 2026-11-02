@@ -136,7 +136,7 @@ trait DiarioDaTurma
      * Por que a pessoa não pode lançar agora, ou null se pode. Mesmas regras
      * do diário da tela antiga.
      */
-    protected function motivoDoBloqueio(User $user, LegacySchoolClass $turma, int $etapa): ?string
+    protected function motivoDoBloqueio(User $user, LegacySchoolClass $turma, int|string $etapa): ?string
     {
         $ano = (int) $turma->ano;
         $escola = (int) $turma->ref_ref_cod_escola;
